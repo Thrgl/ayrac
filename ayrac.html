@@ -186,6 +186,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
   display: flex; flex-direction: column;
   padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px);
 }
+.search-box { padding: 14px 16px 8px; display: grid; gap: 8px; }
+.search-opt { font-size: .84rem; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+.search-count { font-size: .8rem; color: var(--ink-soft); min-height: 1.2em; font-variant-numeric: tabular-nums; }
+.search-results { list-style: none; margin: 0; padding: 0 8px 24px; overflow-y: auto; flex: 1; }
+.search-results h3 { margin: 12px 12px 4px; font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); font-weight: 600; }
+.search-results button { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--ink-soft); padding: 8px 12px; border-radius: 8px; line-height: 1.45; font-family: var(--font-read); font-size: .9rem; }
+.search-results button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--ink); }
+.search-results mark { background: color-mix(in srgb, #e8b33a 45%, transparent); color: var(--ink); border-radius: 3px; padding: 0 1px; }
+.wc-count { font-size: .8rem; color: var(--ink-soft); }
+.wc-count button { border: 0; background: none; padding: 0; color: var(--rlink); text-decoration: underline; font-size: inherit; }
 .drawer.right { left: auto; right: 0; width: min(420px, 94vw); border-right: 0; border-left: 1px solid var(--rline); padding-left: 0; padding-right: env(safe-area-inset-right, 0px); }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 10px 12px 20px; border-bottom: 1px solid var(--rline); }
 .drawer-head h2 { margin: 0; font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); font-weight: 600; }
@@ -447,6 +457,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
       <span class="lbl">İçindekiler</span>
     </button>
     <div class="titles"><b id="bookTitle"></b><small id="bookAuthor"></small></div>
+    <button class="icon-btn" id="searchBtn" type="button" aria-expanded="false" aria-controls="searchDrawer" title="Kitapta ara (Ctrl+F)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <span class="lbl">Ara</span>
+    </button>
     <button class="icon-btn" id="nbBtn" type="button" aria-expanded="false" aria-controls="notebook" title="Kelime defteri">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z"/><path d="M5 17a3 3 0 013-3h11"/><path d="M9 8h6"/></svg>
       <span class="lbl">Defter</span>
@@ -560,6 +574,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
     </button>
   </footer>
 
+  <aside class="drawer" id="searchDrawer" hidden aria-label="Kitapta ara">
+    <div class="drawer-head">
+      <h2>Kitapta ara</h2>
+      <button class="icon-btn" id="searchClose" type="button" aria-label="Kapat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="search-box">
+      <input class="field" id="searchInput" type="search" placeholder="Kelime ya da ifade" autocomplete="off" spellcheck="false">
+      <label class="search-opt"><input type="checkbox" id="searchWhole" checked> Tam kelime</label>
+      <div class="search-count" id="searchCount" aria-live="polite"></div>
+    </div>
+    <ol class="search-results" id="searchResults"></ol>
+  </aside>
+
   <aside class="drawer" id="tocDrawer" hidden aria-label="İçindekiler">
     <div class="drawer-head">
       <h2>İçindekiler</h2>
@@ -599,6 +628,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       </button>
     </div>
     <div class="wc-tags" id="wcTags"></div>
+    <div class="wc-count" id="wcCount" hidden></div>
     <div id="wcBody" style="display:grid;gap:8px"></div>
     <blockquote class="wc-sentence" id="wcSentence"></blockquote>
     <div class="wc-trans" id="wcTrans" hidden aria-live="polite"></div>
@@ -627,7 +657,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <button type="button" data-tab="review" aria-pressed="false">Tekrar <span id="nbDueTab"></span></button>
   </div>
   <div class="nb-pane" id="nbList">
-    <div class="nb-tools"><input class="field" id="nbSearch" type="search" placeholder="Defterde ara (İngilizce ya da Türkçe)" autocomplete="off"></div>
+    <div class="nb-tools">
+      <input class="field" id="nbSearch" type="search" placeholder="Defterde ara (İngilizce ya da Türkçe)" autocomplete="off">
+      <button class="btn" id="nbExport" type="button" title="Excel ve Anki için CSV dosyası">Dışa aktar</button>
+    </div>
     <ul class="nb-list" id="nbItems"></ul>
   </div>
   <div class="nb-pane" id="nbReview" hidden></div>
@@ -1109,6 +1142,7 @@ const BASE_CSS = `
 .epub-body x-w.saved { text-decoration: underline dotted var(--rlink) !important; text-decoration-thickness: 2px !important; text-underline-offset: .24em; }
 .epub-body.mark-off x-w.saved { text-decoration: none !important; }
 .epub-body x-w.active, .epub-body x-w.tts-word { background-color: var(--sel) !important; }
+::highlight(ayrac-search) { background-color: color-mix(in srgb, #e8b33a 55%, transparent); }
 .epub-body x-w.picked { background-color: color-mix(in srgb, var(--rlink) 24%, transparent) !important; box-shadow: inset 0 -2px 0 var(--rlink); }
 .epub-body .tts-block { background-color: color-mix(in srgb, var(--rlink) 7%, transparent) !important; box-shadow: 0 0 0 .35em color-mix(in srgb, var(--rlink) 7%, transparent); border-radius: 3px; }
 ::selection { background: var(--sel); }
@@ -1142,6 +1176,9 @@ function wrapWords(root) {
   }
 }
 
+// Elements removed from a chapter before showing it. The search index removes the same ones, so match positions agree.
+const STRIP_SEL = 'script, iframe, object, embed, form, base, meta, link, style, title, noscript, frame, frameset, applet';
+
 async function renderChapter(i) {
   const item = book.spine[i];
   const src = await zip.text(item.path);
@@ -1161,7 +1198,7 @@ async function renderChapter(i) {
 
   const body = doc.body || byTag(doc, 'body')[0] || doc.documentElement;
   // drop anything that could run code or leave the page
-  body.querySelectorAll('script, iframe, object, embed, form, base, meta, link, style, title, noscript, frame, frameset, applet').forEach((e) => e.remove());
+  body.querySelectorAll(STRIP_SEL).forEach((e) => e.remove());
   for (const node of body.querySelectorAll('*')) {
     for (const at of Array.from(node.attributes)) {
       const n = at.name.toLowerCase();
@@ -1727,6 +1764,15 @@ function openWordCard(w) {
   $('#wcCamBtn').hidden = !host; $('#wcCam').hidden = !!host;
   $('#wcAskAi').hidden = !(useDict() && aiReady());
   $('#wcSource').hidden = !useDict();
+  const countBox = $('#wcCount'); countBox.hidden = true;
+  const countToken = wc.token;
+  countInBook(word).then((n) => {
+    if (!wc || wc.token !== countToken || n < 2) return;
+    const show = el('button', '', 'Hepsini göster'); show.type = 'button';
+    show.addEventListener('click', () => openSearch(word, true));
+    countBox.replaceChildren(document.createTextNode('Kitapta ' + n + ' kez geçiyor · '), show);
+    countBox.hidden = false; placeCard();
+  }).catch(() => {});
   const card = $('#wordCard');
   card.hidden = false;
   const existing = savedFor(word);
@@ -1815,7 +1861,7 @@ function dictInfo(res) {
   const firstK = entries.map((e) => (e.k || [])[0]).find(Boolean) || '';
   const firstD = entries.map((e) => (e.d || [])[0]).find(Boolean) || '';
   return {
-    lemma: res.head || '', pos: posTr((entries[0] || {}).p), ipa: pickIpa(entries), cefr: '', phrase: '',
+    lemma: res.head || '', pos: posTr((entries[0] || {}).p), ipa: pickIpa(entries), cefr: res.cefr || '', phrase: '',
     tr: words.slice(0, 4).join(', ') || firstK, other_tr: words.slice(4, 9).join(', '),
     def: firstD, form: res.note || '', example: '', example_tr: '',
   };
@@ -1846,7 +1892,12 @@ function renderDictEntries(container, entries, limit) {
 function renderDict(res) {
   $('#wcIpa').textContent = wc.info.ipa ? '/' + wc.info.ipa + '/' : '';
   const tags = $('#wcTags'); tags.replaceChildren();
-  if (res.head && normWord(res.head) !== normWord(wc.word)) tags.appendChild(el('span', 'chip cefr', 'kök: ' + res.head));
+  if (res.cefr) {
+    const c = el('span', 'chip cefr', '≈' + res.cefr);
+    c.title = 'Kelimenin ne kadar sık kullanıldığına göre tahmini seviye';
+    tags.appendChild(c);
+  }
+  if (res.head && normWord(res.head) !== normWord(wc.word)) tags.appendChild(el('span', 'chip', 'kök: ' + res.head));
   if (res.note) tags.appendChild(el('span', '', res.note));
   const body = $('#wcBody'); body.replaceChildren();
   for (const ph of res.phrases || []) {
@@ -2023,6 +2074,128 @@ function refreshAiUi() {
   const q = $('#quizBtn'); if (q) q.hidden = !aiReady();
   if (wc) { $('#wcTranslate').hidden = !aiReady(); $('#wcAskAi').hidden = !(useDict() && aiReady()); }
 }
+/* ================= Notebook export (Excel / Anki) ================= */
+// Semicolon-separated with a BOM: Excel with Turkish settings opens it in columns, Anki imports it as notes.
+function notebookCsv() {
+  const q = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""').replace(/\r?\n/g, ' ') + '"';
+  const head = ['Kelime', 'Anlam', 'Cümle', 'Okunuş', 'Tür', 'Seviye', 'İngilizce tanım', 'Örnek', 'Örnek (Türkçe)', 'Kitap', 'Eklenme'];
+  const rows = vocab.list().sort((a, b) => (a.added || 0) - (b.added || 0)).map((w) => [
+    w.head, w.tr, w.sentence, w.ipa ? '/' + w.ipa + '/' : '', w.pos, w.cefr, w.def, w.example, w.exampleTr, w.book,
+    w.added ? new Date(w.added).toISOString().slice(0, 10) : '',
+  ]);
+  return '﻿' + [head, ...rows].map((r) => r.map(q).join(';')).join('\r\n') + '\r\n';
+}
+$('#nbExport').addEventListener('click', async () => {
+  if (!vocab.words.size) { toast('Defterde dışa aktarılacak kelime yok.'); return; }
+  const name = 'Ayrac-defter-' + new Date().toISOString().slice(0, 10) + '.csv';
+  if (host) {
+    const r = await host.api.save_text_file(name, notebookCsv());
+    if (r && r.ok) toast(vocab.words.size + ' kelime kaydedildi');
+    else if (r && !r.cancelled) toast('Kaydedilemedi: ' + (r.message || ''));
+    return;
+  }
+  const dl = await useCap('downloads');
+  if (!dl) { toast('Bu görünümde dosya kaydedilemiyor.'); return; }
+  try { await dl.save({ filename: name, data: notebookCsv() }); toast(vocab.words.size + ' kelime kaydedildi'); }
+  catch (e) { if (e && e.code !== 'declined') toast('Kaydedilemedi.'); }
+});
+
+/* ================= Search in the book ================= */
+const search = { texts: null, bookId: null, building: null, timer: 0 };
+// Plain text of every chapter, built once per book (same stripping as renderChapter).
+function bookTexts() {
+  if (search.texts && search.bookId === book.record.id) return Promise.resolve(search.texts);
+  if (search.building) return search.building;
+  const id = book.record.id;
+  search.building = (async () => {
+    const out = [];
+    for (let i = 0; i < book.spine.length; i++) {
+      const doc = parseDoc((await zip.text(book.spine[i].path)) || '');
+      const body = doc.body || byTag(doc, 'body')[0] || doc.documentElement;
+      body.querySelectorAll(STRIP_SEL).forEach((e) => e.remove());
+      out.push(body.textContent || '');
+      if (i % 4 === 3) await new Promise((r) => setTimeout(r));
+    }
+    if (book && book.record.id === id) { search.texts = out; search.bookId = id; }
+    search.building = null;
+    return out;
+  })();
+  return search.building;
+}
+function searchRegex(q, whole) {
+  const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+').replace(/'/g, "['’]");
+  return new RegExp(whole ? '(?<![\\p{L}\\p{N}])' + esc + '(?![\\p{L}\\p{N}])' : esc, 'giu');
+}
+async function countInBook(word) {
+  const texts = await bookTexts();
+  const re = searchRegex(word, true);
+  return texts.reduce((n, t) => n + (t.match(re) || []).length, 0);
+}
+async function runSearch() {
+  const q = $('#searchInput').value.trim();
+  const list = $('#searchResults'), count = $('#searchCount');
+  list.replaceChildren();
+  if (q.length < 2) { count.textContent = q ? 'En az 2 harf yaz.' : ''; return; }
+  count.textContent = 'Aranıyor…';
+  const texts = await bookTexts();
+  if (q !== $('#searchInput').value.trim()) return;
+  const re = searchRegex(q, $('#searchWhole').checked);
+  let total = 0, shown = 0;
+  texts.forEach((text, i) => {
+    const hits = [...text.matchAll(re)];
+    if (!hits.length) return;
+    total += hits.length;
+    list.appendChild(el('h3', '', chapterLabel(i) + ' · ' + hits.length));
+    hits.forEach((m, n) => {
+      if (shown >= 300) return;
+      shown++;
+      const a = Math.max(0, m.index - 50), b = Math.min(text.length, m.index + m[0].length + 60);
+      const li = el('li'), btn = el('button');
+      btn.type = 'button';
+      btn.append(document.createTextNode((a > 0 ? '…' : '') + clean(text.slice(a, m.index)) + ' '), el('mark', '', m[0]),
+        document.createTextNode(' ' + clean(text.slice(m.index + m[0].length, b)) + (b < text.length ? '…' : '')));
+      btn.addEventListener('click', () => { if (window.innerWidth < 640) closePanels(); goToMatch(i, n, q, $('#searchWhole').checked); });
+      li.appendChild(btn); list.appendChild(li);
+    });
+  });
+  count.textContent = total ? total + ' sonuç' + (shown < total ? ' (ilk ' + shown + ' tanesi listelendi)' : '') : 'Bulunamadı.';
+}
+// Open chapter i and show the n-th match of the query there.
+async function goToMatch(i, n, q, whole) {
+  if (i !== cur) await goTo(i, { frac: 0 });
+  const body = shadow.querySelector('.epub-body');
+  if (!body) return;
+  const nodes = [];
+  let text = '';
+  const tw = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = tw.nextNode())) { nodes.push([node, text.length]); text += node.data; }
+  const m = [...text.matchAll(searchRegex(q, whole))][n];
+  if (!m) return;
+  const at = (pos) => { let k = nodes.length - 1; while (k > 0 && nodes[k][1] > pos) k--; return [nodes[k][0], pos - nodes[k][1]]; };
+  const range = document.createRange();
+  range.setStart(...at(m.index));
+  range.setEnd(...at(m.index + m[0].length));
+  const r = range.getBoundingClientRect(), s = scroller.getBoundingClientRect();
+  scroller.scrollTop += r.top - s.top - scroller.clientHeight / 3;
+  if (window.CSS && CSS.highlights && window.Highlight) CSS.highlights.set('ayrac-search', new Highlight(range));
+}
+function openSearch(q, whole) {
+  closePanels(); closeWordCard();
+  $('#searchDrawer').hidden = false; $('#scrim').hidden = window.innerWidth >= 640 ? true : false;
+  $('#searchBtn').setAttribute('aria-expanded', 'true');
+  if (q != null) { $('#searchInput').value = q; $('#searchWhole').checked = whole !== false; }
+  $('#searchInput').focus(); $('#searchInput').select();
+  runSearch();
+}
+$('#searchBtn').addEventListener('click', () => { if ($('#searchDrawer').hidden) openSearch(); else closePanels(); });
+$('#searchClose').addEventListener('click', () => closePanels());
+$('#searchInput').addEventListener('input', () => { clearTimeout(search.timer); search.timer = setTimeout(runSearch, 250); });
+$('#searchWhole').addEventListener('change', runSearch);
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F') && !$('#reader').hidden) { e.preventDefault(); openSearch(); }
+});
+
 /* ================= Multi-word selection ================= */
 const pick = { on: false, items: new Map() };
 function setPickMode(on) {
@@ -2322,9 +2495,10 @@ async function grade(known) {
 
 /* ================= Panels ================= */
 function closePanels(keepScrim) {
-  $('#tocDrawer').hidden = true; $('#prefs').hidden = true; $('#notebook').hidden = true;
+  $('#tocDrawer').hidden = true; $('#prefs').hidden = true; $('#notebook').hidden = true; $('#searchDrawer').hidden = true;
   if (!keepScrim) $('#scrim').hidden = true;
   $('#tocBtn').setAttribute('aria-expanded', 'false'); $('#prefsBtn').setAttribute('aria-expanded', 'false'); $('#nbBtn').setAttribute('aria-expanded', 'false');
+  $('#searchBtn').setAttribute('aria-expanded', 'false');
 }
 $('#tocBtn').addEventListener('click', () => {
   const open = $('#tocDrawer').hidden;

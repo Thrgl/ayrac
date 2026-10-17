@@ -2,6 +2,12 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 1.7.0 — 2026-10-17
+- Kitapta ara (üst çubuktaki "Ara" ya da Ctrl+F): bütün bölümlerde arama, "tam kelime" seçeneği, bölüme göre gruplu sonuçlar; sonuca tıklayınca o yere gider ve eşleşmeyi vurgular.
+- Kelime kartında "Kitapta 15 kez geçiyor · Hepsini göster".
+- Kelime defterini dışa aktar: Excel ve Anki için CSV (noktalı virgüllü, UTF-8): kelime, anlam, cümle, okunuş, tür, seviye, tanım, örnek, kitap, tarih.
+- Sözlükten seviye tahmini (≈A1–C2): kelimenin ne kadar sık kullanıldığına göre (wordfreq). Sözlüğe `freq` tablosu eklendi; sözlük yeniden oluşturuldu.
+
 ## 1.6.0 — 2026-10-17
 - Yedek al / Yedekten yükle (kitaplığın altında). Masaüstü: kitaplar, defter, okuma yerleri ve ayarlar tek ZIP dosyasında; yüklemeden önce mevcut hâl otomatik yedeklenir (`%APPDATA%\Ayrac\backups`). Web: defter, okuma yerleri ve ayarlar JSON olarak.
 - Düzeltme: defterdeki kelimelerin altını çizerken `-er/-est/-ly` ekleri artık atılmıyor (önceden "on" kayıtlıyken "only", "ear" kayıtlıyken "early" de çiziliyordu); kısalan kök en az 3 harf olmalı.

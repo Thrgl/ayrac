@@ -87,6 +87,16 @@ def find_dictionary() -> Path | None:
     return None
 
 
+def cefr_from_zipf(z):
+    """Rough CEFR level from how common a word is (Zipf scale). An estimate, not an official level."""
+    if z is None:
+        return ""
+    for limit, level in ((5.5, "A1"), (4.8, "A2"), (4.2, "B1"), (3.7, "B2"), (3.2, "C1")):
+        if z >= limit:
+            return level
+    return "C2"
+
+
 class Dictionary:
     """Offline English-Turkish dictionary built from Wiktionary by build_dict.py."""
 
@@ -115,6 +125,14 @@ class Dictionary:
     def _form(self, word):
         with self._lock:
             return self._con.execute("SELECT lemma, note FROM forms WHERE form = ?", (word,)).fetchone()
+
+    def _zipf(self, word):
+        try:
+            with self._lock:
+                row = self._con.execute("SELECT zipf FROM freq WHERE word = ?", (word,)).fetchone()
+        except sqlite3.OperationalError:  # dictionary built before 1.7.0 has no freq table
+            return None
+        return row[0] if row else None
 
     @staticmethod
     def _variants(w):
@@ -200,6 +218,10 @@ class Dictionary:
                 break
         if phrases:
             res["phrases"] = phrases
+        if res.get("head"):
+            z = self._zipf(res["head"])
+            res["zipf"] = z
+            res["cefr"] = cefr_from_zipf(z)
         return res
 
 
@@ -323,6 +345,24 @@ class Api:
             os.startfile(target)
             return True
         return False
+
+    # ---------- export ----------
+    def save_text_file(self, filename, content):
+        """Save text the page generated (e.g. the notebook as CSV) where the user picks."""
+        ext = Path(filename).suffix.lstrip(".").lower() or "txt"
+        picked = webview.windows[0].create_file_dialog(
+            webview.FileDialog.SAVE, directory=str(Path.home() / "Documents"), save_filename=filename,
+            file_types=(f"{ext.upper()} (*.{ext})",))
+        if not picked:
+            return {"ok": False, "cancelled": True}
+        path = picked if isinstance(picked, str) else picked[0]
+        try:
+            Path(path).write_text(content, encoding="utf-8", newline="")
+        except OSError as e:
+            log("error", f"save_text_file: {e!r}")
+            return {"ok": False, "message": str(e)}
+        log("info", f"saved {path}")
+        return {"ok": True, "path": str(path)}
 
     # ---------- backup ----------
     def _write_backup(self, path):
