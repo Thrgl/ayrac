@@ -2,6 +2,17 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.1.0 — 2026-10-17
+- Yer imleri: üst çubuktaki "Yer imi" düğmesi ya da B tuşu. Bir kitapta istediğin kadar yer imi.
+- Vurgulama ve not: metni seç, dört renkten birini ya da "Not ekle"yi seç. Vurgulu bir kelimeye dokununca notu görür, düzenler ya da vurguyu kaldırırsın. Yazı boyu ya da sayfa düzeni değişse de vurgular yerinde kalır.
+- İçindekiler panelinde "Notlar ve yer imleri" sekmesi: hepsi sırayla, dokununca o yere gider; "Notları dışa aktar" ile .txt dosyası.
+- Sayfa modu (Ayarlar → Okuma → Sayfa): kaydırma yerine sayfa çevirme; geniş pencerede iki sütun. Ok tuşları, Boşluk, fare tekerleği ve kaydırma hareketiyle sayfa değişir; alt çubukta "sayfa 3/14".
+- Kenara dokunarak sayfa çevirme (Ayarlar → Okuma; dokunmatik ekranlar için).
+- Dipnotlar sayfadan ayrılmadan küçük bir kartta açılır; "Dipnota git" ile yerine de gidilebilir.
+- Kalan süre artık senin okuma hızından hesaplanır (son 30 günde okuduğun kelime / süre).
+- Kısayol listesi: ? tuşu ya da Ayarlar → "Klavye kısayolları".
+- Masaüstü: ayarlar ve defter `data.json` yerine `data.sqlite`'ta (her kayıtta bütün dosya yeniden yazılmaz; eski dosya ilk açılışta taşınır, `.bak` olarak saklanır). Kitaplar ve kapaklar uygulamaya yerel bir adresten dosya olarak gelir; büyük kitaplar ve kalabalık kitaplık daha hızlı açılır.
+
 ## 2.0.0 — 2026-10-17
 - Android uygulaması: `android\releases\Ayrac-2.0.0.apk` (Android 8.0+). Masaüstündeki her şey telefonda: çevrimdışı sözlük, kalıplar, toplu seçim, defter ve tekrar kartları, kitapta arama, sesli okuma (Android'in sesleriyle), okundu/okunmadı, hedef ve seri, yedek al/yükle, CSV dışa aktarma, isteğe bağlı Claude.
 - .epub dosyaları telefonda "Birlikte aç → Ayraç" ve paylaş menüsüyle açılır; geri tuşu önce kartı/paneli kapatır, sonra kitaplığa döner.

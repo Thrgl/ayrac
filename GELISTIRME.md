@@ -43,8 +43,8 @@ Ayrac/
 
 | Köprü metodu | Ne yapar |
 |---|---|
-| `kv_all`, `kv_set`, `kv_del` | Ayarlar, kelime defteri, okuma konumları → `%APPDATA%\Ayrac\data.json` |
-| `books_list`, `book_meta`, `book_put`, `book_file`, `book_delete` | Kitaplık → `%APPDATA%\Ayrac\books\<sha1>.epub / .json / .cover` |
+| `kv_all`, `kv_set`, `kv_del` | Ayarlar, kelime defteri, okuma konumları, notlar → `%APPDATA%\Ayrac\data.sqlite` (tablo `kv`; 2.1.0 öncesindeki `data.json` ilk açılışta taşınır ve `.bak` olarak saklanır) |
+| `books_list`, `book_meta`, `book_put`, `book_file`, `book_url`, `book_delete` | Kitaplık → `%APPDATA%\Ayrac\books\<sha1>.epub / .json / .cover`. Kitap ve kapaklar köprüden base64 geçmez: `127.0.0.1` üzerinde rastgele portta, rastgele anahtarlı adresle (`BookServer`) dosya olarak verilir |
 | `dict_info`, `dict_lookup`, `dict_lookup_many` | Çevrimdışı sözlük (kök bulma, phrasal verb tespiti) |
 | `open_cambridge` | Cambridge Dictionary sayfasını ayrı bir uygulama penceresinde açar |
 | `ai_status`, `ai_set_key`, `ai_clear_key`, `ai_set_model`, `ask` | İsteğe bağlı Claude (Anthropic API). Anahtar Windows Kimlik Bilgileri Yöneticisi'nde |
@@ -197,7 +197,7 @@ powershell -ExecutionPolicy Bypass -File android\build.ps1
 
 **Telefona kurma:** APK'yı telefona at (USB, Drive, e-posta), dosyaya dokun; ilk seferde "bilinmeyen kaynaklardan yükleme" izni istenir. Güncelleme: yeni APK'yı aynı şekilde kur (veriler korunur).
 
-**Veriler telefonda:** uygulamanın kendi alanında (`/data/data/com.tahir.ayrac/files/Ayrac`). Bilgisayara taşımak için: Ayraç'ta "Yedek al" → ZIP → bilgisayarda "Yedekten yükle" (aynı biçim). Eşitleme (Firebase) 2.1.0'da.
+**Veriler telefonda:** uygulamanın kendi alanında (`/data/data/com.tahir.ayrac/files/Ayrac`). Bilgisayara taşımak için: Ayraç'ta "Yedek al" → ZIP → bilgisayarda "Yedekten yükle" (aynı biçim). Eşitleme (Firebase) ileride.
 
 **Telefonda hata ayıklama:** geliştirici modu açıkken WebView hata ayıklaması açılır; telefon USB'yle bağlıyken bilgisayarda Chrome'da `chrome://inspect`.
 
@@ -257,7 +257,7 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 ## Yol haritası (bekleyen)
 
-- ✅ 2.0.0 — **Android uygulaması** (yukarıdaki "Android uygulaması" bölümü). Kalan: **bilgisayarla eşitleme** (2.1.0, Firebase projesi bekleniyor):
+- ✅ 2.0.0 — **Android uygulaması** (yukarıdaki "Android uygulaması" bölümü). Kalan: **bilgisayarla eşitleme** (Firebase projesi bekleniyor):
   - Okuyucu sayfası bir Android WebView uygulamasına (APK) gömülür; köprü (`window.pywebview.api` ile aynı metodlar) Java'da yazılır, sözlük SQLite olarak APK'da, sesli okuma Android TTS ile.
   - Eşitleme: Firebase (ücretsiz Spark planı) — e-posta/şifre girişi + Firestore. Kitaplar parçalara bölünerek, defter/okuma yeri/okundu bilgisi/ayarlar belge olarak. Eşitleme kodu `ayrac.html` içinde ortak yazılır, böylece masaüstü ve telefon aynı mantığı kullanır.
   - Gerekenler: Android geliştirme araçları (~1,5 GB, JDK + Android SDK + Gradle; Android SDK lisansının kabulü) ve kullanıcının açacağı Firebase projesi (`apiKey`, `projectId`).
@@ -276,21 +276,21 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 | ✅ 1.6.0 — **Veri yedeği: dışa/içe aktar** | Defter, okuma yerleri ve ayarlar tek bir `data.json`'da. Bir "Yedek al / Yedekten yükle" düğmesi (ZIP: `data.json` + `books\`) disk değişiminde ya da bozulmada her şeyi kurtarır. Web'de de defteri JSON olarak indirip yükleyebilmek gerekir. | S |
 | ✅ 1.6.0 — **Defterde altı çizme hatası** | `ayrac.html` `variants()` `-er`, `-est`, `-ly` eklerini de atıyor (Python tarafı bilerek atmıyor). Sonuç: defterde `on` varsa metindeki `only`, `ear` varsa `early`, `numb` varsa `number` da altı çizili görünür. Python'daki gibi yalnız çekim ekleri atılmalı, ya da önce kelimenin kendisi sözlükte aranmalı. | S |
 | ✅ 1.6.0 — **Otomatik testler** | `Dictionary.lookup` için küçük bir `pytest` dosyası (örn. `took off → take off`, `take it off`, `looked`, `travelled`, `children`). Sözlük her yeniden üretildiğinde ve arama mantığı değiştiğinde çalıştırılır. | S |
-| **`data.json` her yazışta baştan yazılıyor** | Okuma yeri sık kaydediliyor; defter büyüdükçe (binlerce kelime) her kaydırmada tüm dosya yeniden yazılır. Okuma yerlerini ayrı dosyaya almak ya da `kv` için SQLite kullanmak yeterli. | M |
-| **Kitap köprüden base64 geçiyor** | `book_file` tüm EPUB'u base64 olarak JS'e yolluyor, `books_list` her açılışta bütün kapakları base64 gönderiyor. Büyük (resimli) kitaplarda ve kalabalık kitaplıkta yavaşlar. pywebview'in yerel HTTP sunucusundan dosya olarak servis etmek ya da kapakları küçük küçük resimlere (thumbnail) indirmek çözer. | M |
+| ✅ 2.1.0 — **`data.json` her yazışta baştan yazılıyor** | Okuma yeri sık kaydediliyor; defter büyüdükçe (binlerce kelime) her kaydırmada tüm dosya yeniden yazılır. Okuma yerlerini ayrı dosyaya almak ya da `kv` için SQLite kullanmak yeterli. | M |
+| ✅ 2.1.0 — **Kitap köprüden base64 geçiyor** | `book_file` tüm EPUB'u base64 olarak JS'e yolluyor, `books_list` her açılışta bütün kapakları base64 gönderiyor. Büyük (resimli) kitaplarda ve kalabalık kitaplıkta yavaşlar. pywebview'in yerel HTTP sunucusundan dosya olarak servis etmek ya da kapakları küçük küçük resimlere (thumbnail) indirmek çözer. | M |
 
 ### Okuma deneyimi
 
 | Ne | Açıklama | Emek |
 |---|---|---|
 | ✅ 1.7.0 — **Kitap içinde arama** | Tüm bölümlerde kelime/ifade arama, sonuç listesi ve sonuca atlama. Bir kelimenin kitapta başka nerede geçtiğini görmek öğrenme için de faydalı ("Bu kelime kitapta 14 kez geçiyor"). | M |
-| **Vurgulama ve not** | Cümle/paragraf seçip renkle işaretleme, not ekleme; İçindekiler çekmecesinde "Notlarım" sekmesi. | M |
-| **Yer imleri** | Kitap içinde birden çok yer imi (şu an sadece "kaldığın yer" var). | S |
-| **Kalan süre** | Alt çubukta "Bölümün bitmesine ~6 dk" (okuma hızı kullanıcının kendi geçmişinden hesaplanır). | S |
-| **Sayfa modu** | Kaydırma yerine sütunlu sayfa çevirme (CSS columns). Bazı okurlar için daha az yorucu. | M |
-| **Dipnot açılır pencereleri** | EPUB'daki `epub:type="noteref"` bağlantılarını sayfa atlamadan kart içinde göstermek. | S |
-| **Ekran kenarına dokunarak sayfa** | Dokunmatik ekran / ileride Android için sol-sağ kenar dokunuşları. | S |
-| **Klavye kısayolları listesi** | `?` tuşuyla kısayol kartı (Alt+←/→, Boşluk, tekrar ekranındaki ←/→ zaten var ama görünmüyor). | S |
+| ✅ 2.1.0 — **Vurgulama ve not** | Cümle/paragraf seçip renkle işaretleme, not ekleme; İçindekiler çekmecesinde "Notlarım" sekmesi. | M |
+| ✅ 2.1.0 — **Yer imleri** | Kitap içinde birden çok yer imi (şu an sadece "kaldığın yer" var). | S |
+| ✅ 2.1.0 — **Kalan süre** | Alt çubukta "Bölümün bitmesine ~6 dk" (okuma hızı kullanıcının kendi geçmişinden hesaplanır). | S |
+| ✅ 2.1.0 — **Sayfa modu** | Kaydırma yerine sütunlu sayfa çevirme (CSS columns). Bazı okurlar için daha az yorucu. | M |
+| ✅ 2.1.0 — **Dipnot açılır pencereleri** | EPUB'daki `epub:type="noteref"` bağlantılarını sayfa atlamadan kart içinde göstermek. | S |
+| ✅ 2.1.0 — **Ekran kenarına dokunarak sayfa** | Dokunmatik ekran / ileride Android için sol-sağ kenar dokunuşları. | S |
+| ✅ 2.1.0 — **Klavye kısayolları listesi** | `?` tuşuyla kısayol kartı (Alt+←/→, Boşluk, tekrar ekranındaki ←/→ zaten var ama görünmüyor). | S |
 
 ### Kelime öğrenme
 

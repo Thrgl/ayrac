@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import shutil
 import sqlite3
 import subprocess
@@ -21,6 +22,7 @@ import traceback
 import urllib.parse
 import urllib.request
 import zipfile
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from multiprocessing import AuthenticationError
 from multiprocessing.connection import Client, Listener
 from pathlib import Path
@@ -33,7 +35,8 @@ import webview
 APP_NAME = "Ayraç"
 DATA_DIR = Path(os.environ.get("APPDATA") or Path.home()) / "Ayrac"
 BOOKS_DIR = DATA_DIR / "books"
-KV_FILE = DATA_DIR / "data.json"
+KV_FILE = DATA_DIR / "data.json"  # before 2.1.0; imported into KV_DB once (backups still use this JSON shape)
+KV_DB = DATA_DIR / "data.sqlite"
 KEYRING_SERVICE = "Ayrac"
 KEYRING_USER = "anthropic_api_key"
 MODELS = {"opus": "claude-opus-5-5", "haiku": "claude-haiku-5-5"}
@@ -231,6 +234,102 @@ class Dictionary:
         return res
 
 
+class BookServer:
+    """Serves book files and covers to the page as plain HTTP (http://127.0.0.1:<port>/<token>/book/<stem>),
+    instead of sending whole EPUBs and covers through the bridge as base64. Only this machine can connect,
+    and only with the random token of this run."""
+
+    TYPES = {"book": (".epub", "application/epub+zip"), "cover": (".cover", None)}
+
+    def __init__(self):
+        self.token = secrets.token_urlsafe(18)
+        server = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_GET(self):
+                parts = self.path.split("?")[0].strip("/").split("/")
+                if len(parts) != 3 or parts[0] != server.token or parts[1] not in server.TYPES \
+                        or not re.fullmatch(r"[0-9a-f]{20}", parts[2]):
+                    self.send_error(404)
+                    return
+                ext, ctype = server.TYPES[parts[1]]
+                f = BOOKS_DIR / (parts[2] + ext)
+                if not f.is_file():
+                    self.send_error(404)
+                    return
+                if ctype is None:
+                    try:
+                        ctype = json.loads(f.with_suffix(".json").read_text(encoding="utf-8")).get("coverType") or "image/jpeg"
+                    except (OSError, ValueError):
+                        ctype = "image/jpeg"
+                data = f.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(data)
+
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.port = self.httpd.server_address[1]
+        threading.Thread(target=self.httpd.serve_forever, name="book-server", daemon=True).start()
+
+    def url(self, kind: str, stem: str) -> str:
+        return f"http://127.0.0.1:{self.port}/{self.token}/{kind}/{stem}"
+
+
+class KvStore:
+    """Settings, notebook, reading positions and stats: one SQLite row per key, so saving the reading position
+    no longer rewrites the whole notebook. data.json from older versions is imported once and kept as .bak."""
+
+    def __init__(self, path: Path, legacy_json: Path):
+        self._lock = threading.Lock()
+        self._con = sqlite3.connect(str(path), check_same_thread=False, isolation_level=None)
+        self._con.execute("PRAGMA journal_mode=WAL")
+        self._con.execute("CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL) WITHOUT ROWID")
+        empty = self._con.execute("SELECT 1 FROM kv LIMIT 1").fetchone() is None
+        if empty and legacy_json.exists():
+            try:
+                self.replace_all(json.loads(legacy_json.read_text(encoding="utf-8")))
+                os.replace(legacy_json, legacy_json.with_name(f"data.json.{time.strftime('%Y%m%d-%H%M%S')}.bak"))
+                log("info", f"settings moved from {legacy_json.name} to {path.name}")
+            except (OSError, ValueError) as e:
+                log("error", f"could not import {legacy_json}: {e!r}")
+        self._cache = {k: json.loads(v) for k, v in self._con.execute("SELECT k, v FROM kv")}
+
+    def all(self) -> dict:
+        with self._lock:
+            return dict(self._cache)
+
+    def get(self, key, default=None):
+        with self._lock:
+            return self._cache.get(key, default)
+
+    def set(self, key, value):
+        data = json.dumps(value, ensure_ascii=False)
+        with self._lock:
+            self._con.execute("INSERT OR REPLACE INTO kv (k, v) VALUES (?, ?)", (key, data))
+            self._cache[key] = value
+
+    def delete(self, key):
+        with self._lock:
+            self._con.execute("DELETE FROM kv WHERE k = ?", (key,))
+            self._cache.pop(key, None)
+
+    def replace_all(self, data: dict):
+        with self._lock:
+            self._con.execute("BEGIN")
+            self._con.execute("DELETE FROM kv")
+            self._con.executemany("INSERT INTO kv (k, v) VALUES (?, ?)",
+                                  [(str(k), json.dumps(v, ensure_ascii=False)) for k, v in data.items()])
+            self._con.execute("COMMIT")
+            self._cache = dict(data)
+
+
 class Api:
     """Methods here are callable from the page as `await window.pywebview.api.<name>(...)`."""
 
@@ -238,7 +337,8 @@ class Api:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         BOOKS_DIR.mkdir(exist_ok=True)
         self._lock = threading.Lock()
-        self._kv = self._load_kv()
+        self._kv = KvStore(KV_DB, KV_FILE)
+        self._server = BookServer()
         self._initial_path = initial_path
         self._client = None
         self._client_key = None
@@ -298,29 +398,15 @@ class Api:
         return True
 
     # ---------- key/value settings (prefs, vocabulary, reading positions) ----------
-    def _load_kv(self) -> dict:
-        try:
-            return json.loads(KV_FILE.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return {}
-
-    def _save_kv(self) -> None:
-        write_atomic(KV_FILE, json.dumps(self._kv, ensure_ascii=False).encode("utf-8"))
-
     def kv_all(self):
-        with self._lock:
-            return dict(self._kv)
+        return self._kv.all()
 
     def kv_set(self, key, value):
-        with self._lock:
-            self._kv[str(key)] = value
-            self._save_kv()
+        self._kv.set(str(key), value)
         return True
 
     def kv_del(self, key):
-        with self._lock:
-            self._kv.pop(str(key), None)
-            self._save_kv()
+        self._kv.delete(str(key))
         return True
 
     # ---------- developer mode ----------
@@ -372,9 +458,9 @@ class Api:
 
     # ---------- backup ----------
     def _write_backup(self, path):
-        with self._lock:
-            kv = json.dumps(self._kv, ensure_ascii=False)
-            words = len(self._kv.get("words") or [])
+        data = self._kv.all()
+        kv = json.dumps(data, ensure_ascii=False)
+        words = len(data.get("words") or [])
         files = [f for f in BOOKS_DIR.iterdir() if BOOK_FILE_RE.match(f.name)]
         with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
             z.writestr("ayrac-backup.json", json.dumps(
@@ -425,9 +511,7 @@ class Api:
                         f.unlink()
                 for n in book_names:
                     (BOOKS_DIR / n[6:]).write_bytes(z.read(n))
-            with self._lock:
-                self._kv = kv
-                self._save_kv()
+            self._kv.replace_all(kv)
         except (OSError, ValueError, zipfile.BadZipFile) as e:
             log("error", f"backup_import: {e!r}")
             return {"ok": False, "message": "Yedek okunamadı: " + str(e)}
@@ -449,9 +533,8 @@ class Api:
                 log("warn", f"books_list: {meta_file.name} has no .epub next to it")
                 continue
             cover = meta_file.with_suffix(".cover")
-            if cover.exists():
-                ctype = meta.get("coverType") or "image/jpeg"
-                meta["cover"] = f"data:{ctype};base64," + base64.b64encode(cover.read_bytes()).decode("ascii")
+            if cover.exists():  # a URL from the local book server, not the image itself
+                meta["cover"] = self._server.url("cover", meta_file.stem) + f"?v={int(cover.stat().st_mtime)}"
             out.append(meta)
         log("info", f"books_list: {len(out)} books ({len(files)} metadata files in {BOOKS_DIR})")
         return out
@@ -480,8 +563,13 @@ class Api:
         return True
 
     def book_file(self, book_id):
+        """The EPUB as base64 (kept for older pages; 2.1.0+ fetches book_url instead)."""
         epub = (BOOKS_DIR / book_stem(book_id)).with_suffix(".epub")
         return base64.b64encode(epub.read_bytes()).decode("ascii") if epub.exists() else None
+
+    def book_url(self, book_id):
+        stem = book_stem(book_id)
+        return self._server.url("book", stem) if (BOOKS_DIR / (stem + ".epub")).exists() else None
 
     def book_delete(self, book_id):
         stem = BOOKS_DIR / book_stem(book_id)
