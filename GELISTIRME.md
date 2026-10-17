@@ -253,8 +253,8 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 | Ne | Açıklama | Emek |
 |---|---|---|
-| **Daha iyi aralıklı tekrar** | Şu an 6 kutulu Leitner, iki düğme (`INTERVAL_DAYS = [0,0,1,3,7,16,40]`). "Zor / İyi / Kolay" üçlüsü ve FSRS benzeri bir algoritma, unutulan kelimeyi 1. kutuya atmak yerine bir-iki kutu geri almak daha verimli. Günlük yeni kelime / tekrar sınırı da eklenmeli. | M |
-| **Ters yön ve yazma kartları** | Şu an sadece İngilizce → Türkçe. Türkçe → İngilizce, boşluk doldurma (kitaptaki cümlede kelime gizli) ve "dinle, yaz" kartları kalıcı öğrenmeyi artırır. | M |
+| ✅ 1.8.0 — **Daha iyi aralıklı tekrar** | Şu an 6 kutulu Leitner, iki düğme (`INTERVAL_DAYS = [0,0,1,3,7,16,40]`). "Zor / İyi / Kolay" üçlüsü ve FSRS benzeri bir algoritma, unutulan kelimeyi 1. kutuya atmak yerine bir-iki kutu geri almak daha verimli. Günlük yeni kelime / tekrar sınırı da eklenmeli. | M |
+| ✅ 1.8.0 — **Ters yön ve yazma kartları** | Şu an sadece İngilizce → Türkçe. Türkçe → İngilizce, boşluk doldurma (kitaptaki cümlede kelime gizli) ve "dinle, yaz" kartları kalıcı öğrenmeyi artırır. | M |
 | ✅ 1.7.0 — **Anki / CSV dışa aktarma** | Defteri `kelime; anlam; cümle; IPA` olarak CSV ya da Anki paketi (`.apkg`) yapmak. Telefonda Anki kullananlar için Android uygulaması bitene kadar köprü olur. | S |
 | ✅ 1.7.0 — **Seviye etiketi (CEFR) sözlükten** | Masaüstünde sözlük modu `cefr: ''` döndürüyor; etiket sadece Claude'dan geliyor. `build_dict.py` zaten `wordfreq` kullanıyor: Zipf sıklığından kabaca A1–C2 tahmini `entries`'e yazılabilir. | S |
 | **Kitabın zorluğu** | Kitap eklenince "kelimelerin %94'ü ilk 3000 kelimede → B1 için uygun" gibi bir özet; kitaplıkta kapak altında seviye rozeti. | M |
@@ -266,7 +266,7 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 | Ne | Açıklama | Emek |
 |---|---|---|
-| **Günlük seri ve hedef** | "Bugün 20 dk okudun, 12 tekrar yaptın · 7 günlük seri". Kitaplık başındaki `vocab-strip`'e eklenebilir. | S |
+| ✅ 1.8.0 — **Günlük seri ve hedef** | "Bugün 20 dk okudun, 12 tekrar yaptın · 7 günlük seri". Kitaplık başındaki `vocab-strip`'e eklenebilir. | S |
 | **İlerleme grafiği** | Haftalık okuma süresi, eklenen / öğrenilen kelime sayısı. Veriler zaten var (`last`, `reviews`, `box`), okuma süresinin kaydı eklenmeli. | M |
 
 ### Claude ile

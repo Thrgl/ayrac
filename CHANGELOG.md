@@ -2,6 +2,13 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 1.8.0 — 2026-10-17
+- Yeni tekrar sistemi (Anki tarzı): Tekrar / Zor / İyi / Kolay; her düğmede sıradaki tekrarın ne zaman olacağı yazar. Unutulan kelime en başa dönmez, aralığı yarıya iner ve 10 dk sonra yeniden sorulur. Eski kutu (Leitner) bilgisi otomatik çevrilir. Klavye: 1–4, ←/→, Enter.
+- Günlük yeni kelime sınırı (Ayarlar → Günde yeni kelime: 10 / 20 / 40 / sınırsız).
+- Yeni kart türleri: Türkçe → İngilizce, kitaptaki cümlede boşluk doldurma, dinle-yaz; "Karışık" modda yeni kelime önce İng → Tr sorulur, sonra türler dönüşümlü gelir. Yazmalı kartlarda cevap kontrol edilir ve uygun düğme önerilir.
+- Günlük hedef ve seri: okuma süresi ölçülür (kitap açık, pencere görünür, son 2 dk içinde kaydırma/dokunma ya da sesli okuma). Kitaplıkta "Bugün X / 15 dk" çubuğu ve "N günlük seri" (5+ dk okuma ya da 10+ kart tekrarı olan günler). Hedef Ayarlar'dan seçilir.
+- "İyi biliniyor" artık tekrar aralığı 21 günü geçen kelimeleri sayar.
+
 ## 1.7.0 — 2026-10-17
 - Kitapta ara (üst çubuktaki "Ara" ya da Ctrl+F): bütün bölümlerde arama, "tam kelime" seçeneği, bölüme göre gruplu sonuçlar; sonuca tıklayınca o yere gider ve eşleşmeyi vurgular.
 - Kelime kartında "Kitapta 15 kez geçiyor · Hepsini göster".
