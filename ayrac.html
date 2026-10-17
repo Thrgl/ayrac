@@ -717,7 +717,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="aiSetupTitle">
     <h2 id="aiSetupTitle">Claude bağlantısı</h2>
     <p>Kelime anlamları, cümle çevirisi ve bölüm testleri Claude ile çalışır. Masaüstü uygulamasında bunun için bir Anthropic API anahtarı gerekir. Anahtarı <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a> adresinden oluşturabilirsin. API kullanımı claude.ai aboneliğinden ayrı ücretlendirilir.</p>
-    <p class="note">Anahtar Windows Kimlik Bilgileri Yöneticisi’nde saklanır, yalnızca Anthropic’e gönderilir. Anahtar olmadan da okuyabilir, kelimeleri dinleyebilir, defter tutup tekrar yapabilirsin.</p>
+    <p class="note" id="aiKeyNote">Anahtar Windows Kimlik Bilgileri Yöneticisi’nde saklanır, yalnızca Anthropic’e gönderilir. Anahtar olmadan da okuyabilir, kelimeleri dinleyebilir, defter tutup tekrar yapabilirsin.</p>
     <label class="modal-label" for="aiKey">API anahtarı</label>
     <input class="field" id="aiKey" type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
     <div class="setting"><span>Model</span>
@@ -769,7 +769,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 <script>
 (async () => {
 'use strict';
-const DESKTOP = !!window.AYRAC_DESKTOP;
+const DESKTOP = !!window.AYRAC_DESKTOP;  // a native host (Windows app or Android app) provides window.pywebview.api
+const PLATFORM = window.AYRAC_PLATFORM || (DESKTOP ? 'windows' : 'web');
+const DEVICE = PLATFORM === 'android' ? 'bu telefonda' : 'bu bilgisayarda';
 const $ = (s) => document.querySelector(s);
 const XLINK = 'http://www.w3.org/1999/xlink';
 const DAY = 86400000;
@@ -1632,7 +1634,7 @@ vocab.listeners.push(() => {
   renderVocabStrip();
   if (!$('#notebook').hidden && nbTab === 'list') renderNotebookList();
   if (wc) updateSaveBtn();
-  $('#nbFoot').textContent = host ? 'Defterin bu bilgisayarda saklanıyor.' : vocab.mode === 'db'
+  $('#nbFoot').textContent = host ? 'Defterin ' + DEVICE + ' saklanıyor.' : vocab.mode === 'db'
     ? 'Defterin claude.ai hesabında saklanıyor; bu sayfayı başka cihazda açınca da görünür. Yalnızca sen görebilirsin.'
     : 'Defterin yalnızca bu tarayıcıda saklanıyor.';
 });
@@ -3006,7 +3008,10 @@ function openAiSetup() {
 }
 if (host) {
   document.querySelectorAll('.desktop-only').forEach((n) => { n.hidden = false; });
-  $('#dropDesc').textContent = 'Dosyayı buraya sürükle ya da bilgisayarından seç. Açtığın kitaplar bu bilgisayarda kitaplığına kopyalanır.';
+  $('#dropDesc').textContent = PLATFORM === 'android'
+    ? 'Telefonundaki bir EPUB dosyasını seç. Açtığın kitaplar bu telefonda kitaplığına kopyalanır.'
+    : 'Dosyayı buraya sürükle ya da bilgisayarından seç. Açtığın kitaplar bu bilgisayarda kitaplığına kopyalanır.';
+  if (PLATFORM === 'android') $('#aiKeyNote').textContent = 'Anahtar bu telefonda, uygulamanın kendi alanında saklanır ve yalnızca Anthropic’e gönderilir. Anahtar olmadan da okuyabilir, kelimeleri dinleyebilir, defter tutup tekrar yapabilirsin.';
   $('#aiOpen').addEventListener('click', openAiSetup);
   $('#aiCloseBtn').addEventListener('click', () => { aiModal.hidden = true; });
   aiModal.addEventListener('click', (e) => { if (e.target === aiModal) aiModal.hidden = true; });
@@ -3146,7 +3151,7 @@ async function openDevPanel() {
   const dl = $('#devInfo'); dl.replaceChildren();
   for (const [k, v] of rows) dl.append(el('dt', '', k), el('dd', '', v || '—'));
   $('#devNote').textContent = host ? (info.devMode ? 'Geliştirici modu açık: uygulamayı kapatıp açınca sağ tık → “İncele” ile web inceleyicisi açılır. Günlük her açılışı ve hataları kaydeder.' : 'Geliştirici modu kapalı.') : 'Web sürümünde günlük ve inceleyici yok.';
-  $('#devLog').hidden = $('#devData').hidden = $('#devUpdate').hidden = !host;
+  $('#devLog').hidden = $('#devData').hidden = $('#devUpdate').hidden = !host || PLATFORM === 'android';
   $('#devToggle').textContent = devOn() ? 'Geliştirici modunu kapat' : 'Geliştirici modunu aç';
   $('#devPanel').hidden = false;
 }
@@ -3174,6 +3179,17 @@ $('#devReload').addEventListener('click', async () => { await renderShelf(); toa
 $('#devToggle').addEventListener('click', async () => { await setDev(!devOn()); openDevPanel(); });
 $('#devUpdate').addEventListener('click', () => checkUpdate(true));
 showDevBadge();
+
+// Android back button: close the top-most thing; false means "nothing to close, leave the app".
+window.ayracBack = () => {
+  if (!$('#confirmModal').hidden) { $('#confirmNo').click(); return true; }
+  if (!$('#devPanel').hidden || !$('#aiSetup').hidden) { $('#devPanel').hidden = true; $('#aiSetup').hidden = true; return true; }
+  if (wc) { closeWordCard(); return true; }
+  if (pick.on) { setPickMode(false); return true; }
+  if (['#tocDrawer', '#notebook', '#searchDrawer', '#prefs'].some((s) => !$(s).hidden)) { closePanels(); return true; }
+  if (!$('#reader').hidden) { showLibrary(); return true; }
+  return false;
+};
 
 applyPrefs();
 updateListenBtn();

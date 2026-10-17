@@ -2,6 +2,12 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.0.0 — 2026-10-17
+- Android uygulaması: `android\releases\Ayrac-2.0.0.apk` (Android 8.0+). Masaüstündeki her şey telefonda: çevrimdışı sözlük, kalıplar, toplu seçim, defter ve tekrar kartları, kitapta arama, sesli okuma (Android'in sesleriyle), okundu/okunmadı, hedef ve seri, yedek al/yükle, CSV dışa aktarma, isteğe bağlı Claude.
+- .epub dosyaları telefonda "Birlikte aç → Ayraç" ve paylaş menüsüyle açılır; geri tuşu önce kartı/paneli kapatır, sonra kitaplığa döner.
+- Yedekler masaüstü ve telefon arasında aynı biçimde: bir cihazda "Yedek al", ötekinde "Yedekten yükle".
+- Masaüstü: metinler cihaza göre ("bu bilgisayarda" / "bu telefonda").
+
 ## 1.9.0 — 2026-10-17
 - Kurulum programı: `desktop\releases\Ayrac-Setup-<sürüm>.exe` (Inno Setup, yönetici izni gerekmez). Başlat menüsü ve masaüstü kısayolu, "Program ekle/kaldır" kaydı, kaldırınca kitaplar ve defter silinmez.
 - .epub dosyaları için "Birlikte aç → Ayraç".
