@@ -16,6 +16,7 @@ import threading
 import time
 import traceback
 import urllib.parse
+import zipfile
 from pathlib import Path
 
 import anthropic
@@ -71,6 +72,8 @@ def book_stem(book_id: str) -> str:
 
 
 DICT_FILE = "en-tr.sqlite"
+# Files a backup may contain under books/ (and nothing else, so a ZIP cannot write outside that folder).
+BOOK_FILE_RE = re.compile(r"^[0-9a-f]{20}\.(epub|json|cover)$")
 # Words that can sit inside a separable phrasal verb: "take it off", "pick them up".
 OBJECT_WORDS = {"it", "him", "her", "them", "me", "us", "you", "this", "that", "these", "those", "one", "something", "someone"}
 
@@ -320,6 +323,71 @@ class Api:
             os.startfile(target)
             return True
         return False
+
+    # ---------- backup ----------
+    def _write_backup(self, path):
+        with self._lock:
+            kv = json.dumps(self._kv, ensure_ascii=False)
+            words = len(self._kv.get("words") or [])
+        files = [f for f in BOOKS_DIR.iterdir() if BOOK_FILE_RE.match(f.name)]
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("ayrac-backup.json", json.dumps(
+                {"app": "Ayrac", "version": app_version(), "created": time.strftime("%Y-%m-%d %H:%M:%S")}))
+            z.writestr("data.json", kv)
+            for f in files:
+                z.write(f, "books/" + f.name)
+        books = sum(1 for f in files if f.suffix == ".epub")
+        log("info", f"backup written: {path} ({books} books, {words} words)")
+        return {"ok": True, "path": str(path), "books": books, "words": words}
+
+    def backup_export(self):
+        """Ask where to save, then write one ZIP: data.json (settings, notebook, positions) + books/."""
+        name = f"Ayrac-yedek-{time.strftime('%Y-%m-%d')}.zip"
+        picked = webview.windows[0].create_file_dialog(
+            webview.FileDialog.SAVE, directory=str(Path.home() / "Documents"), save_filename=name,
+            file_types=("Ayraç yedeği (*.zip)",))
+        if not picked:
+            return {"ok": False, "cancelled": True}
+        path = picked if isinstance(picked, str) else picked[0]
+        try:
+            return self._write_backup(path)
+        except OSError as e:
+            log("error", f"backup_export: {e!r}")
+            return {"ok": False, "message": str(e)}
+
+    def backup_import(self):
+        """Replace the library and notebook with a backup ZIP. The current state is saved first."""
+        picked = webview.windows[0].create_file_dialog(
+            webview.FileDialog.OPEN, directory=str(Path.home() / "Documents"), file_types=("Ayraç yedeği (*.zip)",))
+        if not picked:
+            return {"ok": False, "cancelled": True}
+        return self._restore_backup(picked if isinstance(picked, str) else picked[0])
+
+    def _restore_backup(self, path):
+        try:
+            with zipfile.ZipFile(path) as z:
+                names = set(z.namelist())
+                if "ayrac-backup.json" not in names or "data.json" not in names:
+                    return {"ok": False, "message": "Bu dosya bir Ayraç yedeği değil."}
+                kv = json.loads(z.read("data.json").decode("utf-8"))
+                book_names = [n for n in names if n.startswith("books/") and BOOK_FILE_RE.match(n[6:])]
+                safety = DATA_DIR / "backups" / f"geri-yuklemeden-once-{time.strftime('%Y%m%d-%H%M%S')}.zip"
+                safety.parent.mkdir(exist_ok=True)
+                self._write_backup(safety)
+                for f in BOOKS_DIR.iterdir():
+                    if BOOK_FILE_RE.match(f.name):
+                        f.unlink()
+                for n in book_names:
+                    (BOOKS_DIR / n[6:]).write_bytes(z.read(n))
+            with self._lock:
+                self._kv = kv
+                self._save_kv()
+        except (OSError, ValueError, zipfile.BadZipFile) as e:
+            log("error", f"backup_import: {e!r}")
+            return {"ok": False, "message": "Yedek okunamadı: " + str(e)}
+        books = sum(1 for n in book_names if n.endswith(".epub"))
+        log("info", f"backup restored from {path} ({books} books); previous state saved to {safety}")
+        return {"ok": True, "books": books, "words": len(kv.get("words") or []), "safety": str(safety)}
 
     # ---------- library ----------
     def books_list(self):

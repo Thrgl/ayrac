@@ -335,7 +335,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .kbd-hint { font-size: .75rem; color: var(--ink-soft); text-align: center; }
 
 .app-foot { display: flex; gap: 6px; align-items: baseline; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); padding-top: 14px; font-variant-numeric: tabular-nums; }
+.app-foot { flex-wrap: wrap; }
 .app-foot .link-btn { color: var(--muted); text-decoration: none; }
+.foot-sep { opacity: .6; }
 .app-foot .link-btn:hover { color: var(--accent); }
 .dev-info { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; font-size: .85rem; }
 .dev-info dt { color: var(--muted); }
@@ -424,6 +426,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <footer class="app-foot">
       <button class="link-btn" id="verBtn" type="button" title="Sürüm bilgisi">Ayraç <span id="appVer"></span></button>
       <span id="devBadge" hidden>· geliştirici modu</span>
+      <span class="foot-sep">·</span>
+      <button class="link-btn" id="backupExport" type="button" title="Kitaplık, defter, okuma yerleri ve ayarlar tek dosyada">Yedek al</button>
+      <span class="foot-sep">·</span>
+      <button class="link-btn" id="backupImport" type="button">Yedekten yükle</button>
+      <input type="file" id="backupFile" accept=".json,application/json" hidden>
     </footer>
   </div>
 </main>
@@ -645,6 +652,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
       <button class="btn solid" id="aiSave" type="button">Kaydet ve dene</button>
       <button class="btn" id="aiRemove" type="button">Anahtarı sil</button>
       <button class="btn" id="aiCloseBtn" type="button">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="confirmModal" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+    <h2 id="confirmTitle"></h2>
+    <p id="confirmText"></p>
+    <div class="modal-actions">
+      <button class="btn solid" id="confirmYes" type="button"></button>
+      <button class="btn" id="confirmNo" type="button">Vazgeç</button>
     </div>
   </div>
 </div>
@@ -1456,10 +1474,15 @@ function wordId(head) {
   return 'w-' + (s || Date.now().toString(36));
 }
 const normWord = (w) => w.toLowerCase().replace(/’/g, "'");
+// The word itself, then forms with an inflection removed (-s, -es, -ed, -ing, 's). Like the desktop dictionary,
+// -er/-est/-ly are left alone: they make new words ("early" is not "ear"), and a stem must keep 3+ letters.
 function variants(t) {
-  return [t, t.replace(/'s$/, ''), t.replace(/s$/, ''), t.replace(/es$/, ''), t.replace(/ies$/, 'y'), t.replace(/ied$/, 'y'),
-    t.replace(/ed$/, ''), t.replace(/d$/, ''), t.replace(/(.)\1ed$/, '$1'), t.replace(/ing$/, ''), t.replace(/ing$/, 'e'),
-    t.replace(/(.)\1ing$/, '$1'), t.replace(/er$/, ''), t.replace(/est$/, ''), t.replace(/ly$/, '')];
+  const out = [t];
+  for (const v of [t.replace(/'s$/, ''), t.replace(/ies$/, 'y'), t.replace(/ied$/, 'y'), t.replace(/es$/, ''), t.replace(/s$/, ''),
+    t.replace(/(.)\1ed$/, '$1'), t.replace(/ed$/, ''), t.replace(/d$/, ''), t.replace(/(.)\1ing$/, '$1'), t.replace(/ing$/, 'e'), t.replace(/ing$/, '')]) {
+    if (v !== t && v.length >= 3 && !out.includes(v)) out.push(v);
+  }
+  return out;
 }
 let savedForms = new Map();
 function rebuildForms() {
@@ -1472,7 +1495,7 @@ function rebuildForms() {
 }
 function savedFor(word) {
   const t = normWord(word);
-  for (const v of variants(t)) if (v.length > 1 && savedForms.has(v)) return savedForms.get(v);
+  for (const v of variants(t)) if (savedForms.has(v)) return savedForms.get(v);
   return null;
 }
 function markSavedWords() {
@@ -2608,6 +2631,63 @@ if (host) {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') aiModal.hidden = true; });
   refreshAiStatus();
 }
+
+/* ================= Backup ================= */
+// Desktop: one ZIP with the library, notebook, reading positions and settings (Python writes and reads it).
+// Web: a JSON file with the notebook, reading positions and settings (books stay in this browser).
+function askConfirm(title, text, yes) {
+  return new Promise((resolve) => {
+    const m = $('#confirmModal');
+    $('#confirmTitle').textContent = title; $('#confirmText').textContent = text; $('#confirmYes').textContent = yes;
+    m.hidden = false; $('#confirmNo').focus();
+    const done = (v) => { m.hidden = true; $('#confirmYes').onclick = $('#confirmNo').onclick = null; resolve(v); };
+    $('#confirmYes').onclick = () => done(true);
+    $('#confirmNo').onclick = () => done(false);
+  });
+}
+function webBackup() {
+  const positions = {};
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('ayrac:pos:')) positions[k.slice(6)] = JSON.parse(localStorage.getItem(k)); } } catch (e) {}
+  return { app: 'Ayrac', kind: 'notebook', version: APP_VERSION, created: new Date().toISOString(), words: vocab.list(), prefs, positions };
+}
+$('#backupExport').addEventListener('click', async () => {
+  if (host) {
+    const r = await host.api.backup_export();
+    if (r && r.ok) toast('Yedek alındı: ' + r.books + ' kitap, ' + r.words + ' kelime');
+    else if (r && !r.cancelled) toast('Yedek alınamadı: ' + (r.message || ''));
+    return;
+  }
+  const dl = await useCap('downloads');
+  if (!dl) { toast('Bu görünümde dosya kaydedilemiyor.'); return; }
+  try {
+    await dl.save({ filename: 'Ayrac-defter-' + new Date().toISOString().slice(0, 10) + '.json', data: JSON.stringify(webBackup(), null, 1) });
+    toast('Yedek kaydedildi (' + vocab.words.size + ' kelime)');
+  } catch (e) { if (e && e.code !== 'declined') toast('Yedek kaydedilemedi.'); }
+});
+$('#backupImport').addEventListener('click', async () => {
+  if (host) {
+    const ok = await askConfirm('Yedekten yükle', 'Seçeceğin yedek, şu anki kitaplığın, defterin ve ayarlarının yerine geçer. Yüklemeden önce şu anki hâlin otomatik olarak yedeklenir.', 'Yedek dosyasını seç');
+    if (!ok) return;
+    const r = await host.api.backup_import();
+    if (r && r.ok) { toast('Yedek yüklendi: ' + r.books + ' kitap, ' + r.words + ' kelime'); setTimeout(() => location.reload(), 900); }
+    else if (r && !r.cancelled) toast(r.message || 'Yedek yüklenemedi.');
+    return;
+  }
+  $('#backupFile').click();
+});
+$('#backupFile').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  let data;
+  try { data = JSON.parse(await f.text()); } catch (err) { toast('Bu dosya okunamadı.'); return; }
+  if (!data || data.app !== 'Ayrac' || !Array.isArray(data.words)) { toast('Bu dosya bir Ayraç defter yedeği değil.'); return; }
+  const ok = await askConfirm('Yedekten yükle', data.words.length + ' kelime, okuma yerleri ve ayarlar yüklenecek. Defterde aynı kelime varsa yedekteki geçerli olur; diğer kelimelerin kalır.', 'Yükle');
+  if (!ok) return;
+  await vocab.saveMany(data.words.filter((w) => w && w.id && w.head));
+  if (data.prefs) { Object.assign(prefs, data.prefs); applyPrefs(); }
+  for (const [k, v] of Object.entries(data.positions || {})) store.set(k, v);
+  toast(data.words.length + ' kelime yüklendi');
+});
 
 /* ================= Developer mode ================= */
 // Tap the version number 5 times (or press Ctrl+Shift+D) to turn developer mode on; then the version opens this panel.
