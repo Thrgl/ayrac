@@ -10,13 +10,19 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import traceback
 import urllib.parse
+import urllib.request
 import zipfile
+from multiprocessing import AuthenticationError
+from multiprocessing.connection import Client, Listener
 from pathlib import Path
 
 import anthropic
@@ -483,6 +489,73 @@ class Api:
             stem.with_suffix(ext).unlink(missing_ok=True)
         return True
 
+    def open_external(self, path):
+        """An .epub was opened while Ayraç is running (double-click, "Open with"): show it in this window."""
+        p = Path(str(path))
+        if p.suffix.lower() != ".epub" or not p.is_file():
+            log("warn", f"open request ignored: {path}")
+            return False
+        self._initial_path = str(p)
+        log("info", f"open request: {p}")
+        win = webview.windows[0]
+        win.restore()
+        win.evaluate_js("window.ayracOpenExternal && window.ayracOpenExternal()")
+        return True
+
+    # ---------- updates ----------
+    def _update_source(self):
+        """Manifest URL from settings, else the one the installer wrote next to Ayrac.exe (update-source.txt)."""
+        url = self._kv.get("updateUrl")
+        if url:
+            return url
+        f = Path(sys.executable).resolve().parent / "update-source.txt"
+        try:
+            return f.read_text(encoding="utf-8").strip() or None
+        except OSError:
+            return None
+
+    def check_update(self):
+        """Read the update manifest: {"version": "1.9.1", "setup_url": "...", "notes": "..."}."""
+        url = self._update_source()
+        if not url:
+            return {"configured": False, "current": app_version()}
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": f"Ayrac/{app_version()}"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                m = json.loads(r.read().decode("utf-8-sig"))
+            latest = str(m.get("version", ""))
+            setup = urllib.parse.urljoin(url, str(m.get("setup_url") or ""))
+        except (OSError, ValueError) as e:
+            log("warn", f"check_update {url}: {e!r}")
+            return {"configured": True, "ok": False, "source": url, "current": app_version(), "message": str(e)}
+        newer = version_tuple(latest) > version_tuple(app_version())
+        log("info", f"check_update: current {app_version()}, latest {latest} from {url}")
+        return {"configured": True, "ok": True, "source": url, "current": app_version(), "latest": latest,
+                "newer": newer, "notes": str(m.get("notes", "")), "setup_url": setup}
+
+    def set_update_source(self, url):
+        self.kv_set("updateUrl", (url or "").strip() or None)
+        return self.check_update()
+
+    def install_update(self):
+        """Download the newer setup and run it; the installer closes this window and opens the new version."""
+        info = self.check_update()
+        if not info.get("newer") or not info.get("setup_url", "").lower().endswith(".exe"):
+            return {"ok": False, "message": "Yeni sürüm bulunamadı."}
+        dest = Path(tempfile.gettempdir()) / f"Ayrac-Setup-{info['latest']}.exe"
+        try:
+            with urllib.request.urlopen(info["setup_url"], timeout=60) as r, dest.open("wb") as f:
+                shutil.copyfileobj(r, f)
+        except OSError as e:
+            log("error", f"install_update download: {e!r}")
+            return {"ok": False, "message": "İndirilemedi: " + str(e)}
+        log("info", f"install_update: running {dest}")
+        # Start the installer through WMI so it is not part of this app's process tree: the PyInstaller
+        # bootloader keeps its children in one job, and the Ayraç the installer reopens would go down with it.
+        start_outside_container(f'"{dest}" /SILENT /SUPPRESSMSGBOXES /NORESTART')
+        threading.Timer(1.5, lambda: webview.windows[0].destroy()).start()
+        return {"ok": True, "version": info["latest"]}
+
     def initial_file(self):
         path, self._initial_path = self._initial_path, None
         if not path:
@@ -581,6 +654,83 @@ class Api:
 _instance_mutex = None
 
 
+def version_tuple(v: str):
+    return tuple(int(x) for x in re.findall(r"\d+", v or "")[:3])
+
+
+# An .epub opened while Ayraç is already running is handed to the open window over this per-user pipe.
+PIPE = r"\\.\pipe\Ayrac-" + re.sub(r"\W", "", os.environ.get("USERNAME", "user"))
+
+
+def _pipe_key() -> bytes:
+    f = DATA_DIR / ".pipekey"
+    try:
+        return f.read_bytes()
+    except OSError:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        key = os.urandom(32)
+        f.write_bytes(key)
+        return key
+
+
+def send_to_running_instance(path: str) -> bool:
+    try:
+        with Client(PIPE, family="AF_PIPE", authkey=_pipe_key()) as conn:
+            conn.send(os.path.abspath(path))
+        return True
+    except (OSError, EOFError, AuthenticationError) as e:
+        log("warn", f"could not hand {path} to the open window: {e!r}")
+        return False
+
+
+def serve_open_requests(api) -> None:
+    def run():
+        try:
+            listener = Listener(PIPE, family="AF_PIPE", authkey=_pipe_key())
+        except OSError as e:
+            log("warn", f"open-request pipe unavailable: {e!r}")
+            return
+        while True:
+            try:
+                with listener.accept() as conn:
+                    path = conn.recv()
+                api.open_external(path)
+            except (OSError, EOFError, AuthenticationError) as e:
+                log("warn", f"open request failed: {e!r}")
+
+    threading.Thread(target=run, name="open-requests", daemon=True).start()
+
+
+def start_outside_container(command_line: str) -> None:
+    """Start a program through WMI, so it runs outside this process tree and outside any app-package container."""
+    ps = ("Invoke-CimMethod -ClassName Win32_Process -MethodName Create "
+          f"-Arguments @{{CommandLine='{command_line.replace(chr(39), chr(39) * 2)}'}} | Out-Null")
+    subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                   creationflags=subprocess.CREATE_NO_WINDOW, timeout=60, check=False)
+
+
+def data_dir_is_redirected() -> bool:
+    """True when Windows redirects our %APPDATA% writes into some app package's private copy.
+
+    That happens when Ayraç is started from a packaged app's shell (for example Claude's terminal): the
+    window would then read and write a separate library that the normal desktop shortcut never sees."""
+    local = os.environ.get("LOCALAPPDATA")
+    if not local or not getattr(sys, "frozen", False):
+        return False
+    probe = DATA_DIR / f".probe-{os.getpid()}"
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        probe.write_text("x", encoding="ascii")
+        return any(Path(local, "Packages").glob(f"*/LocalCache/Roaming/Ayrac/{probe.name}"))
+    except OSError:
+        return False
+    finally:
+        try:
+            probe.unlink()
+        except OSError:
+            pass
+
+
 def focus_running_instance() -> bool:
     """Keep one copy running: two WebView2 windows on the same data folder take each other down.
     If Ayraç is already open, bring its window forward and report True."""
@@ -603,10 +753,17 @@ def focus_running_instance() -> bool:
 
 
 def main():
-    if focus_running_instance():
-        log("info", "second launch: focused the window that is already open")
-        return
     initial = next((a for a in sys.argv[1:] if a.lower().endswith(".epub")), None)
+    if data_dir_is_redirected():
+        args = " ".join(f'"{a}"' for a in sys.argv[1:])
+        start_outside_container(f'"{sys.executable}" {args}'.strip())
+        return
+    if focus_running_instance():
+        if initial and send_to_running_instance(initial):
+            log("info", f"second launch: sent {initial} to the open window")
+        else:
+            log("info", "second launch: focused the window that is already open")
+        return
     api = Api(initial)
     dev = bool(api.kv_all().get("devMode")) or "--debug" in sys.argv
     log("info", f"start: Ayraç {app_version()} exe={sys.executable} data={DATA_DIR} dev={dev}")
@@ -622,6 +779,7 @@ def main():
         background_color="#eef0ec",
         text_select=True,
     )
+    serve_open_requests(api)
     webview.start(
         gui="edgechromium",
         private_mode=False,

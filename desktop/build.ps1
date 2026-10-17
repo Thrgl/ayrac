@@ -55,5 +55,25 @@ Copy-Item $dictFile (Join-Path $dist 'dict') -Force
 $releases = Join-Path $here 'releases'
 New-Item -ItemType Directory -Force $releases | Out-Null
 Copy-Item (Join-Path $work 'dist\Ayrac.exe') (Join-Path $releases "Ayrac-$version.exe") -Force
+
+# Installer (Inno Setup, per-user) + update manifest. The installed app checks releases\latest.json for newer versions.
+$iscc = Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'
+if (Test-Path $iscc) {
+  $setupSrc = Join-Path $work 'setup'
+  Remove-Item -Recurse -Force $setupSrc -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force (Join-Path $setupSrc 'dict') | Out-Null
+  Copy-Item (Join-Path $work 'dist\Ayrac.exe'), (Join-Path $src 'ayrac.ico') $setupSrc
+  Copy-Item $dictFile (Join-Path $setupSrc 'dict')
+  $manifest = Join-Path $releases 'latest.json'
+  [IO.File]::WriteAllText((Join-Path $setupSrc 'update-source.txt'), ([Uri]$manifest).AbsoluteUri, (New-Object Text.UTF8Encoding $false))
+  & $iscc /Q "/DAppVer=$version" "/DSrcDir=$setupSrc" "/DOutDir=$releases" (Join-Path $here 'installer.iss')
+  if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+  # Release notes for the update banner: the bullets of this version in CHANGELOG.md.
+  $log = Get-Content -Raw -Encoding utf8 (Join-Path $root 'CHANGELOG.md')
+  $m = [regex]::Match($log, "(?ms)^## $([regex]::Escape($version))\b.*?\r?\n(.*?)(?=^## |\z)")
+  $notes = (($m.Groups[1].Value -split "`n") | Where-Object { $_ -match '^- ' } | ForEach-Object { ($_ -replace '^- ', '').Split(':')[0].Trim() } | Select-Object -First 3) -join " $([char]0xB7) "   # middle dot; keep this script ASCII (PowerShell 5 reads it as ANSI)
+  $json = @{ version = $version; setup_url = "Ayrac-Setup-$version.exe"; notes = $notes } | ConvertTo-Json -Compress
+  [IO.File]::WriteAllText($manifest, $json, (New-Object Text.UTF8Encoding $false))
+} else { "Inno Setup not found ($iscc); skipping the installer" }
 "Ayraç $version built"
 Get-ChildItem $dist, $releases -Recurse -File | Select-Object FullName, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
