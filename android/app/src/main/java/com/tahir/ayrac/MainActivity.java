@@ -5,11 +5,16 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.util.Base64;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowInsetsController;
 import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -189,6 +194,28 @@ public class MainActivity extends Activity {
         return f.get();
     }
 
+    /** The window behind the page, the status bar and the navigation bar take the page's background colour. */
+    @SuppressWarnings("deprecation")
+    private void setBarColors(int color, boolean dark) {
+        Window w = getWindow();
+        w.setBackgroundDrawable(new ColorDrawable(color));
+        w.setStatusBarColor(color);
+        w.setNavigationBarColor(color);
+        web.setBackgroundColor(color);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController c = w.getInsetsController();
+            if (c != null) {
+                int light = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                c.setSystemBarsAppearance(dark ? 0 : light, light);
+            }
+        } else {
+            View d = w.getDecorView();
+            int flags = d.getSystemUiVisibility() & ~(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+            if (!dark) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            d.setSystemUiVisibility(flags);
+        }
+    }
+
     private String displayName(Uri u) {
         try (Cursor c = getContentResolver().query(u, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
             if (c != null && c.moveToFirst()) return c.getString(0);
@@ -350,6 +377,12 @@ public class MainActivity extends Activity {
                     os.write(String.valueOf(str(a, 1)).getBytes(StandardCharsets.UTF_8));
                 }
                 return new JSONObject().put("ok", true).put("path", displayName(u));
+            }
+            case "set_bar_colors": {
+                int c = Color.parseColor(String.valueOf(str(a, 0)));
+                boolean dark = a.optBoolean(1);
+                runOnUiThread(() -> setBarColors(c, dark));
+                return true;
             }
             case "check_update":
             case "set_update_source":

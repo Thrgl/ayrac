@@ -105,6 +105,13 @@ def test_cefr_estimate(d, word, expected):
     assert res["cefr"] == expected, (word, res.get("zipf"))
 
 
+def test_profile_gives_lemma_and_frequency(d):
+    p = d.profile(["took", "travelled", "children", "The", "zzzzqx", "took"])
+    assert p["took"][0] == "take" and p["travelled"][0] == "travel" and p["children"][0] == "child"
+    assert p["the"][1] > 7 > p["travelled"][1]
+    assert "zzzzqx" not in p
+
+
 def test_cefr_scale():
     import ayrac_app
     assert [ayrac_app.cefr_from_zipf(z) for z in (7, 5, 4.5, 4, 3.5, 2)] == ["A1", "A2", "B1", "B2", "C1", "C2"]

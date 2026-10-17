@@ -244,6 +244,47 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .keys-list { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 16px; font-size: .9rem; }
 .keys-list dt { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; color: var(--accent); }
 .keys-list dd { margin: 0; }
+/* Book level, hard words before a chapter, notebook filters, progress charts */
+.book-level { position: absolute; top: 8px; right: 8px; z-index: 1; background: rgba(15, 20, 18, .78); color: #f4f8f5; font-size: .7rem; font-weight: 700; letter-spacing: .04em; padding: 3px 7px; border-radius: 999px; }
+.drawer-level { font-size: .8rem; color: var(--ink-soft); line-height: 1.45; margin: 4px 0 0; }
+.drawer-level b { color: var(--ink); }
+.chapter-start {
+  break-inside: avoid; font-family: var(--font-ui); font-size: .88rem; color: var(--ink);
+  border: 1px solid var(--rline); border-radius: 12px; padding: 14px 16px; margin: 0 0 28px; display: grid; gap: 10px;
+}
+.cs-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.cs-head b { font-size: .95rem; }
+.cs-head span { color: var(--ink-soft); font-size: .8rem; }
+.cs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.cs-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--rline); }
+.cs-word { font-weight: 600; }
+.cs-word small { font-weight: 500; color: var(--ink-soft); margin-left: 6px; font-size: .72rem; }
+.cs-tr { color: var(--ink-soft); grid-column: 1; overflow-wrap: anywhere; }
+.cs-acts { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; }
+.cs-acts button { border: 1px solid var(--rline); background: none; color: var(--ink); border-radius: 999px; padding: 4px 10px; font-size: .78rem; }
+.cs-acts button:hover { border-color: var(--rlink); color: var(--rlink); }
+.cs-acts button.done { color: var(--good); border-color: transparent; }
+.cs-acts button:disabled:not(.done) { opacity: .35; cursor: default; }
+.cs-foot { display: flex; gap: 8px; flex-wrap: wrap; }
+.nb-filters { display: flex; gap: 8px; padding: 0 16px 8px; flex-wrap: wrap; }
+.nb-filters label { display: grid; gap: 2px; flex: 1 1 100px; min-width: 0; font-size: .72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; }
+.nb-filters select { padding: 6px 8px; font-size: .85rem; text-transform: none; letter-spacing: 0; width: 100%; }
+.rv-scope { margin-bottom: 8px; }
+.stats-modal { width: min(640px, calc(100vw - 32px)); }
+.stats-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.stats-head h2 { margin: 0; }
+.stats-head .seg button { flex: 0 0 auto; padding: 7px 10px; }
+.stats-totals { display: flex; flex-wrap: wrap; gap: 6px 24px; }
+.stats-totals div { display: grid; gap: 2px; }
+.stats-totals b { font-family: var(--font-display); font-size: 1.5rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.stats-totals span { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.chart { display: grid; gap: 6px; margin-top: 14px; }
+.chart h3 { margin: 0; font-size: .8rem; font-weight: 600; color: var(--muted); }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart .bar-v { fill: var(--accent); }
+.chart .bar-v.today { fill: var(--good); }
+.chart .axis { fill: var(--muted); font-size: 10px; font-family: var(--font-ui); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
 .search-box { padding: 14px 16px 8px; display: grid; gap: 8px; }
 .search-opt { font-size: .84rem; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
 .search-count { font-size: .8rem; color: var(--ink-soft); min-height: 1.2em; font-variant-numeric: tabular-nums; }
@@ -283,6 +324,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--rlink) 16%, transparent); color: var(--ink); font-weight: 600; }
 .seg button:hover { color: var(--ink); }
 .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--rline); vertical-align: -1px; margin-right: 5px; }
+.ink-seg { flex-wrap: wrap; }
+.ink-seg button { flex: 0 0 auto; min-width: 34px; }
+.ink-seg button:first-child { flex: 1 0 auto; }
+.ink-seg button .swatch { width: 16px; height: 16px; margin: 0; vertical-align: middle; border-color: color-mix(in srgb, var(--ink-soft) 60%, transparent); }
+.ink-pick { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 7px; font-size: .84rem; color: var(--ink-soft); cursor: pointer; }
+.ink-pick.on { background: color-mix(in srgb, var(--rlink) 16%, transparent); color: var(--ink); font-weight: 600; }
+.ink-pick input { width: 22px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; }
 .stepper { display: flex; align-items: center; border: 1px solid var(--rline); border-radius: 10px; padding: 3px; }
 .stepper button { border: 0; background: none; color: var(--ink); border-radius: 7px; width: 44px; height: 34px; font-family: var(--font-display); }
 .stepper button:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
@@ -505,6 +553,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       <div class="vs-actions">
         <button class="btn-primary" id="vsReview" type="button">Tekrar et</button>
         <button class="btn-ghost" id="vsOpen" type="button">Defteri aç</button>
+        <button class="btn-ghost" id="vsStats" type="button">İlerleme</button>
       </div>
     </section>
 
@@ -568,6 +617,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <button type="button" data-v="night"><i class="swatch" style="background:#0f1211"></i>Gece</button>
         </div>
       </div>
+      <div class="setting"><span>Yazı rengi</span>
+        <div class="seg ink-seg" data-pref="ink">
+          <button type="button" data-v="auto">Temaya göre</button>
+          <button type="button" data-v="#ffffff" title="Beyaz" aria-label="Beyaz"><i class="swatch" style="background:#ffffff"></i></button>
+          <button type="button" data-v="#e6dcc4" title="Krem" aria-label="Krem"><i class="swatch" style="background:#e6dcc4"></i></button>
+          <button type="button" data-v="#e8b96a" title="Kehribar (gece için)" aria-label="Kehribar"><i class="swatch" style="background:#e8b96a"></i></button>
+          <button type="button" data-v="#9aa6a0" title="Gri" aria-label="Gri"><i class="swatch" style="background:#9aa6a0"></i></button>
+          <button type="button" data-v="#4a3a28" title="Kahve" aria-label="Kahve"><i class="swatch" style="background:#4a3a28"></i></button>
+          <button type="button" data-v="#000000" title="Siyah" aria-label="Siyah"><i class="swatch" style="background:#000000"></i></button>
+          <label class="ink-pick" title="Başka bir renk seç"><input type="color" id="inkPick" value="#888888" aria-label="Özel yazı rengi">Özel</label>
+        </div>
+      </div>
       <div class="setting"><span>Yazı tipi</span>
         <div class="seg" data-pref="font">
           <button type="button" data-v="literata" style="font-family:var(--font-display)">Literata</button>
@@ -627,6 +688,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <button type="button" data-v="off">Gizli</button>
         </div>
       </div>
+      <div class="setting"><span>Bölüm başında zor kelimeler</span>
+        <div class="seg" data-pref="preWords">
+          <button type="button" data-v="on">Göster</button>
+          <button type="button" data-v="off">Gösterme</button>
+        </div>
+      </div>
       <div class="setting"><span>Günlük okuma hedefi</span>
         <div class="seg" data-pref="goal">
           <button type="button" data-v="10">10 dk</button>
@@ -666,6 +733,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
         <span>İpucu: Bilmediğin bir kelimeye dokun, anlamı açılsın. Kelimeyi deftere ekleyip sonra tekrar edebilirsin.</span>
         <button type="button" id="tapHintClose">Tamam</button>
       </p>
+      <section class="chapter-start" id="chapterStart" hidden aria-label="Bu bölümün zor kelimeleri"></section>
       <div id="bookHost"></div>
       <div class="chapter-end" id="chapterEnd" hidden></div>
     </article>
@@ -777,6 +845,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
     </div>
     <div class="wc-foot">
       <button class="btn solid" id="wcSave" type="button">Deftere ekle</button>
+      <button class="btn" id="wcKnown" type="button" title="Bilinen kelime: zor kelime listelerinde ve kitabın zorluğunda bilinmeyen sayılmaz">Biliyorum</button>
       <button class="btn" id="wcCamBtn" type="button" hidden>Cambridge’de aç</button>
       <button class="btn" id="wcTranslate" type="button">Cümleyi çevir</button>
       <button class="btn" id="wcAskAi" type="button" hidden>Bu cümlede ne demek?</button>
@@ -803,6 +872,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <div class="nb-tools">
       <input class="field" id="nbSearch" type="search" placeholder="Defterde ara (İngilizce ya da Türkçe)" autocomplete="off">
       <button class="btn" id="nbExport" type="button" title="Excel ve Anki için CSV dosyası">Dışa aktar</button>
+    </div>
+    <div class="nb-filters">
+      <label><span>Sırala</span><select class="field" id="nbSort">
+        <option value="new">En yeni</option><option value="old">En eski</option><option value="az">A → Z</option>
+        <option value="due">Tekrar zamanı</option><option value="hard">En zor önce</option>
+      </select></label>
+      <label><span>Kitap</span><select class="field" id="nbBook"><option value="">Hepsi</option></select></label>
+      <label><span>Durum</span><select class="field" id="nbState">
+        <option value="">Hepsi</option><option value="new">Yeni</option><option value="learning">Öğreniliyor</option><option value="known">İyi biliniyor</option><option value="due">Tekrarı gelmiş</option>
+      </select></label>
     </div>
     <ul class="nb-list" id="nbItems"></ul>
   </div>
@@ -841,6 +920,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
       <button class="btn solid" id="noteSave" type="button">Kaydet</button>
       <button class="btn" id="noteCancel" type="button">Vazgeç</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="statsModal" hidden>
+  <div class="modal stats-modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+    <div class="stats-head">
+      <h2 id="statsTitle">İlerleme</h2>
+      <div class="seg" id="statsRange">
+        <button type="button" data-v="7" aria-pressed="true">7 gün</button>
+        <button type="button" data-v="30" aria-pressed="false">30 gün</button>
+        <button type="button" data-v="84" aria-pressed="false">12 hafta</button>
+      </div>
+    </div>
+    <div class="stats-totals" id="statsTotals"></div>
+    <div id="statsCharts"></div>
+    <div class="modal-actions"><button class="btn" id="statsClose" type="button">Kapat</button></div>
   </div>
 </div>
 
@@ -901,6 +996,9 @@ const DESKTOP = !!window.AYRAC_DESKTOP;  // a native host (Windows app or Androi
 const PLATFORM = window.AYRAC_PLATFORM || (DESKTOP ? 'windows' : 'web');
 const DEVICE = PLATFORM === 'android' ? 'bu telefonda' : 'bu bilgisayarda';
 const $ = (s) => document.querySelector(s);
+// Turkish interface (capital İ in uppercase labels); the book itself is English.
+document.documentElement.lang = 'tr';
+$('#bookHost').lang = 'en';
 const XLINK = 'http://www.w3.org/1999/xlink';
 const DAY = 86400000;
 const SPEAK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>';
@@ -1259,7 +1357,7 @@ const FONTS = {
   book: '',
 };
 const prefs = Object.assign({ theme: 'auto', font: 'literata', fs: 19, lh: '1.65', width: '38em', level: 'B1', accent: 'en-US', rate: '0.9', mark: 'on', goal: '15', newPerDay: '20', cardMode: 'mix',
-  layout: 'scroll', edgeTap: PLATFORM === 'android' ? 'on' : 'off' }, store.get('prefs', {}));
+  layout: 'scroll', edgeTap: PLATFORM === 'android' ? 'on' : 'off', preWords: 'on', ink: 'auto' }, store.get('prefs', {}));
 function applyPrefs() {
   const r = $('#reader');
   if (!r.hidden) document.body.dataset.read = prefs.theme;
@@ -1273,9 +1371,27 @@ function applyPrefs() {
   });
   const body = shadow && shadow.querySelector('.epub-body');
   if (body) { body.classList.toggle('font-override', prefs.font !== 'book'); body.classList.toggle('mark-off', prefs.mark === 'off'); }
+  const ink = /^#[0-9a-f]{6}$/i.test(prefs.ink || '') ? prefs.ink : '';
+  if (ink) $('#page').style.setProperty('--ink', ink); else $('#page').style.removeProperty('--ink');  // the book text, not the menus
+  $('#inkPick').value = ink || '#888888';
+  $('#inkPick').closest('label').classList.toggle('on', !!ink && !$('[data-pref="ink"] [aria-pressed="true"]'));
   layoutPages();
   store.set('prefs', prefs);
+  syncSystemBars();
 }
+// Android: the window, status bar and navigation bar take the page's background colour.
+let lastBars = '';
+function syncSystemBars() {
+  if (PLATFORM !== 'android' || !host) return;
+  const m = getComputedStyle($('#reader').hidden ? document.body : $('#reader')).backgroundColor.match(/\d+(\.\d+)?/g);
+  if (!m || m.length < 3) return;
+  const [r, g, b] = m.map(Number);
+  const hex = '#' + [r, g, b].map((x) => Math.round(x).toString(16).padStart(2, '0')).join('');
+  if (hex === lastBars) return;
+  lastBars = hex;
+  try { Promise.resolve(host.api.set_bar_colors(hex, 0.299 * r + 0.587 * g + 0.114 * b < 140)).catch(() => {}); } catch (e) {}
+}
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(syncSystemBars, 50));
 function changePref(fn) {
   const frac = scrollFrac();
   fn(); applyPrefs();
@@ -1514,6 +1630,7 @@ async function goTo(i, opt = {}) {
   if (i === cur + 1 && cur >= 0) markChapterRead(cur);  // moved on to the next chapter
   const token = ++navToken;
   if (i !== cur) {
+    $('#chapterStart').hidden = true;
     if (!shadow.childNodes.length) shadow.replaceChildren(Object.assign(document.createElement('p'), { className: 'loading', textContent: 'Bölüm yükleniyor…' }));
     try { await renderChapter(i); }
     catch (err) { console.error(err); shadow.replaceChildren(Object.assign(document.createElement('p'), { textContent: 'Bu bölüm açılamadı: ' + err.message })); cur = i; renderChapterEnd(); }
@@ -1521,6 +1638,7 @@ async function goTo(i, opt = {}) {
     await settleImages();
     if (token !== navToken) return;
     paintHighlights();
+    renderChapterStart(i, opt);
   }
   const target = opt.frag ? findAnchor(opt.frag) : null;
   if (target) scrollToEl(target); else setFrac(opt.frac || 0);
@@ -1669,6 +1787,7 @@ function buildToc() {
   txt.append(el('b', '', book.title), el('span', '', book.author));
   if (book.description) txt.appendChild(el('p', '', book.description));
   head.appendChild(txt);
+  renderDrawerLevel();
 }
 let tocFilter = 'all';
 function markToc() {
@@ -2301,6 +2420,7 @@ function updateSaveBtn() {
   const ex = findWcEntry();
   b.textContent = ex ? 'Defterde ✓  (çıkar)' : 'Deftere ekle';
   b.classList.toggle('solid', !ex);
+  updateKnownBtn();
 }
 function findWcEntry() {
   if (!wc) return null;
@@ -2770,6 +2890,260 @@ function openKeys() { closePanels(); $('#keysModal').hidden = false; $('#keysClo
 $('#keysBtn').addEventListener('click', openKeys);
 $('#keysClose').addEventListener('click', () => { $('#keysModal').hidden = true; });
 
+/* ================= Levels: known words, book difficulty, hard words before a chapter =================
+   Levels come from the offline dictionary's word frequencies (Zipf scale, same limits as cefr_from_zipf in
+   ayrac_app.py), so they are estimates. "Biliyorum" keeps a word's lemma in 'known'. */
+const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const levelOfZipf = (z) => (z >= 5.5 ? 'A1' : z >= 4.8 ? 'A2' : z >= 4.2 ? 'B1' : z >= 3.7 ? 'B2' : z >= 3.2 ? 'C1' : 'C2');
+const levelIdx = (l) => Math.max(0, LEVELS.indexOf(l));
+const known = new Set(store.get('known', []));
+function setKnown(lemma, on) {
+  lemma = normWord(lemma);
+  if (on) known.add(lemma); else known.delete(lemma);
+  store.set('known', [...known]);
+}
+const canProfile = () => useDict() && PLATFORM === 'windows';
+
+function wcLemma() { return wc ? normWord((wc.info && wc.info.lemma) || wc.word || '') : ''; }
+function updateKnownBtn() {
+  const b = $('#wcKnown');
+  if (!wc) return;
+  const on = known.has(wcLemma()) || known.has(normWord(wc.word));
+  b.textContent = on ? 'Bilinen ✓' : 'Biliyorum';
+  b.setAttribute('aria-pressed', String(on));
+}
+$('#wcKnown').addEventListener('click', () => {
+  if (!wc) return;
+  const l = wcLemma(), on = !(known.has(l) || known.has(normWord(wc.word)));
+  setKnown(l, on);
+  if (!on) setKnown(wc.word, false);
+  updateKnownBtn();
+  toast(on ? '“' + l + '” bilinen kelimelere eklendi' : '“' + l + '” bilinenlerden çıkarıldı');
+});
+
+// Word counts in a text; words seen only with a capital letter (mostly names) are flagged.
+function tokenStats(text) {
+  const m = new Map();
+  const re = new RegExp(WORD_RE.source, 'g');
+  let r;
+  while ((r = re.exec(text))) {
+    const raw = r[0], w = normWord(raw);
+    if (w.length < 2) continue;
+    let s = m.get(w);
+    if (!s) m.set(w, (s = { n: 0, lower: false }));
+    s.n++;
+    if (raw[0] !== raw[0].toUpperCase()) s.lower = true;
+  }
+  return m;
+}
+const profCache = new Map();  // word -> [lemma, zipf] or null
+async function profileWords(words) {
+  const need = words.filter((w) => !profCache.has(w));
+  for (let i = 0; i < need.length; i += 4000) {
+    const part = need.slice(i, i + 4000);
+    let res = null;
+    try { res = await host.api.dict_profile(part); } catch (e) {}
+    for (const w of part) profCache.set(w, (res && res[w]) || null);
+  }
+}
+
+// The level at which 95% of the book's running words are covered.
+async function bookLevel() {
+  if (!book || !canProfile()) return null;
+  const id = book.record.id, key = 'level:' + id;
+  const saved = store.get(key, null);
+  if (saved && saved.v === 1) return saved;
+  const counts = tokenStats((await bookTexts()).join('\n'));
+  const words = [...counts.keys()].filter((w) => counts.get(w).lower);
+  await profileWords(words);
+  const per = LEVELS.map(() => 0);
+  let total = 0;
+  for (const w of words) {
+    const p = profCache.get(w);
+    if (!p) continue;
+    const n = counts.get(w).n;
+    per[levelIdx(levelOfZipf(p[1]))] += n; total += n;
+  }
+  if (total < 300) return null;
+  let acc = 0;
+  const cov = per.map((n) => { acc += n; return Math.round((acc / total) * 1000) / 10; });
+  const li = cov.findIndex((c) => c >= 95);
+  const res = { v: 1, level: LEVELS[li < 0 ? 5 : li], cov, tokens: total, unique: words.length };
+  if (book && book.record.id === id) { store.set(key, res); renderDrawerLevel(); }
+  return res;
+}
+function fitText(bookLv) {
+  const d = levelIdx(bookLv) - levelIdx(prefs.level);
+  return d <= -1 ? 'senin için kolay' : d === 0 ? 'seviyene uygun' : d === 1 ? 'biraz zorlayıcı, öğrenmek için iyi' : 'senin için zor';
+}
+function renderDrawerLevel() {
+  const box = $('#drawerBook > div');
+  if (!box || !book) return;
+  let p = box.querySelector('.drawer-level');
+  const lv = store.get('level:' + book.record.id, null);
+  if (!lv) { if (p) p.remove(); return; }
+  if (!p) { p = el('p', 'drawer-level'); box.appendChild(p); }
+  const userCov = lv.cov[levelIdx(prefs.level)];
+  p.replaceChildren(el('b', '', 'Seviye ≈ ' + lv.level), document.createTextNode(
+    ' · ' + fitText(lv.level) + '. ' + prefs.level + ' ve altı seviyedeki kelimeler: %' + String(userCov).replace('.', ',') + ' (sözlükteki sıklığa göre tahmin).'));
+}
+
+// Before a new chapter: 10-15 words above the reader's level, with a tap to save or mark as known.
+const csDismissed = new Set();
+async function renderChapterStart(i, opt) {
+  const box = $('#chapterStart');
+  box.hidden = true; box.replaceChildren();
+  if (!book || prefs.preWords === 'off' || !canProfile() || isChapterRead(i) || opt.frag || (opt.frac || 0) > 0.02) return;
+  const dismissKey = book.record.id + ':' + i;
+  if (csDismissed.has(dismissKey)) return;
+  const body = shadow.querySelector('.epub-body');
+  if (!body) return;
+  const counts = tokenStats(body.textContent);
+  let n = 0; counts.forEach((s) => { n += s.n; });
+  if (n < 150) return;  // cover, title page, contents
+  const token = navToken;
+  const words = [...counts.keys()].filter((w) => counts.get(w).lower && w.length > 2);
+  await profileWords(words);
+  if (token !== navToken || cur !== i) return;
+  const user = levelIdx(prefs.level), byLemma = new Map();
+  for (const w of words) {
+    const p = profCache.get(w);
+    if (!p) continue;
+    const [lemma, z] = p;
+    if (levelIdx(levelOfZipf(z)) <= user || z < 1.5 || known.has(lemma) || known.has(w) || savedFor(w) || savedFor(lemma)) continue;
+    const e = byLemma.get(lemma) || { lemma, word: w, z, n: 0 };
+    e.n += counts.get(w).n;
+    byLemma.set(lemma, e);
+  }
+  const cands = [...byLemma.values()].sort((a, b) => b.n - a.n || a.z - b.z).slice(0, 24);
+  if (!cands.length) return;
+  const firstEl = new Map();
+  for (const x of shadow.querySelectorAll('x-w')) { const k = normWord(x.textContent); if (!firstEl.has(k)) firstEl.set(k, x); }
+  let res = [];
+  try { res = (await host.api.dict_lookup_many(cands.map((c) => ({ word: c.word, prev: [], next: [] })))) || []; } catch (e) {}
+  if (token !== navToken || cur !== i) return;
+  const rows = cands.map((c, k) => ({ c, info: res[k] && res[k].found ? dictInfo(res[k]) : null }))
+    .filter((r) => r.info && r.info.tr).slice(0, 12)
+    .map((r) => ({ ...r, sentence: firstEl.has(r.c.word) ? sentenceOf(firstEl.get(r.c.word)) : '' }));
+  if (rows.length < 3 || scrollPos() > 40) return;  // the reader already moved on (or jumped to a search hit)
+
+  const close =() => { csDismissed.add(dismissKey); box.hidden = true; box.replaceChildren(); onScroll(); };
+  const head = el('div', 'cs-head');
+  head.append(el('b', '', 'Bu bölümde zor olabilecek ' + rows.length + ' kelime'), el('span', '', 'Seviyen ' + prefs.level + ' · sözlükteki sıklığa göre'));
+  const ul = el('ul', 'cs-list');
+  const pending = new Set(rows);
+  for (const r of rows) {
+    const li = el('li');
+    const wd = el('div', 'cs-word', r.info.lemma || r.c.lemma);
+    wd.appendChild(el('small', '', levelOfZipf(r.c.z) + (r.c.n > 1 ? ' · ' + r.c.n + ' kez' : '')));
+    const acts = el('div', 'cs-acts');
+    const add = el('button', '', 'Deftere'), kn = el('button', '', 'Biliyorum');
+    add.type = kn.type = 'button';
+    const done = (b, text) => { b.textContent = text; b.classList.add('done'); add.disabled = kn.disabled = true; pending.delete(r); };
+    add.addEventListener('click', async () => { await vocab.save(makeEntry(r.c.word, r.sentence, r.info, '')); done(add, 'Eklendi ✓'); });
+    kn.addEventListener('click', () => { setKnown(r.info.lemma || r.c.lemma, true); done(kn, 'Bilinen ✓'); });
+    acts.append(add, kn);
+    li.append(wd, acts, el('div', 'cs-tr', r.info.tr));
+    ul.appendChild(li);
+  }
+  const foot = el('div', 'cs-foot');
+  const all = el('button', 'btn', 'Kalanların hepsini deftere ekle'), hide = el('button', 'btn', 'Kapat');
+  all.type = hide.type = 'button';
+  all.addEventListener('click', async () => {
+    const list = [...pending].map((r) => makeEntry(r.c.word, r.sentence, r.info, ''));
+    await vocab.saveMany(list);
+    toast(list.length + ' kelime deftere eklendi');
+    close();
+  });
+  hide.addEventListener('click', close);
+  foot.append(all, hide);
+  box.append(head, ul, foot);
+  box.hidden = false;
+  onScroll();
+}
+
+/* ================= Notebook: sort, filter, review one book ================= */
+function wordState(w) { const s = cardState(w); return s.reps === 0 ? 'new' : s.ivl >= 21 ? 'known' : 'learning'; }
+function fillNbBooks() {
+  const sel = $('#nbBook');
+  const titles = [...new Set(vocab.list().map((w) => w.book).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr'));
+  const want = prefs.nbBook || '';
+  sel.replaceChildren(new Option('Hepsi', ''), ...titles.map((t) => new Option(t, t)));
+  sel.value = titles.includes(want) ? want : '';
+}
+$('#nbSort').value = prefs.nbSort || 'new';
+$('#nbState').value = prefs.nbState || '';
+for (const [id, key] of [['#nbSort', 'nbSort'], ['#nbBook', 'nbBook'], ['#nbState', 'nbState']]) {
+  $(id).addEventListener('change', () => { prefs[key] = $(id).value; store.set('prefs', prefs); renderNotebookList(); });
+}
+const NB_SORT = {
+  new: (a, b) => (b.added || 0) - (a.added || 0),
+  old: (a, b) => (a.added || 0) - (b.added || 0),
+  az: (a, b) => a.head.localeCompare(b.head, 'en'),
+  due: (a, b) => (a.due || 0) - (b.due || 0),
+  hard: (a, b) => cardState(b).lapses - cardState(a).lapses || cardState(a).ease - cardState(b).ease || (a.due || 0) - (b.due || 0),
+};
+
+/* ================= Progress chart ================= */
+let statsRange = 7;
+const fmtMin = (m) => (m >= 60 ? Math.floor(m / 60) + ' sa ' + (m % 60 ? (m % 60) + ' dk' : '') : m + ' dk').trim();
+const TR_DAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
+function barChart(title, labels, values, fmt) {
+  const W = 380, H = 110, top = 16, bottom = 18, n = values.length, max = Math.max(1, ...values);
+  const step = W / n, bw = Math.max(2, step * 0.62);
+  let s = '';
+  for (const f of [0.5, 1]) { const y = (top + (H - top - bottom) * (1 - f)).toFixed(1); s += '<line class="grid" x1="0" x2="' + W + '" y1="' + y + '" y2="' + y + '"/>'; }
+  values.forEach((v, k) => {
+    const h = ((H - top - bottom) * v) / max, x = k * step + (step - bw) / 2, y = H - bottom - h, cx = (k * step + step / 2).toFixed(1);
+    s += '<rect class="bar-v' + (k === n - 1 ? ' today' : '') + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(v ? 1.5 : 0, h).toFixed(1) + '" rx="2"><title>' + labels[k].full + ': ' + fmt(v) + '</title></rect>';
+    if (labels[k].show) s += '<text class="axis" x="' + cx + '" y="' + (H - 4) + '" text-anchor="middle">' + labels[k].short + '</text>';
+    if (n <= 12 && v) s += '<text class="axis" x="' + cx + '" y="' + (y - 4).toFixed(1) + '" text-anchor="middle">' + fmt(v) + '</text>';
+  });
+  const box = el('div', 'chart');
+  box.appendChild(el('h3', '', title));
+  box.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + title + '">' + s + '</svg>');
+  return box;
+}
+function renderStats() {
+  $('#statsRange').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === statsRange)));
+  const added = new Map();
+  for (const w of vocab.list()) if (w.added) { const k = dayKey(new Date(w.added)); added.set(k, (added.get(k) || 0) + 1); }
+  const days = [];
+  for (let k = statsRange - 1; k >= 0; k--) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - k); days.push(d); }
+  const week = statsRange > 31;
+  const buckets = [];
+  days.forEach((d, k) => {
+    if (!week || k % 7 === 0) buckets.push({ d, read: 0, rev: 0, add: 0 });
+    const b = buckets[buckets.length - 1], s = statDay(dayKey(d));
+    b.read += s.read || 0; b.rev += s.rev || 0; b.add += added.get(dayKey(d)) || 0;
+  });
+  const labels = buckets.map((b, k) => {
+    const dm = b.d.getDate() + '.' + (b.d.getMonth() + 1);
+    if (week) return { short: dm, full: dm + ' haftası', show: k % 2 === buckets.length % 2 || k === buckets.length - 1 };
+    if (statsRange <= 7) return { short: TR_DAYS[b.d.getDay()], full: TR_DAYS[b.d.getDay()] + ' ' + dm, show: true };
+    return { short: String(b.d.getDate()), full: dm, show: (buckets.length - 1 - k) % 5 === 0 };
+  });
+  const sum = (f) => buckets.reduce((a, b) => a + b[f], 0);
+  const activeDays = days.filter((d) => activeDay(statDay(dayKey(d)))).length;
+  const totals = [
+    [fmtMin(Math.round(sum('read') / MIN)), 'okuma'],
+    [String(sum('add')), 'kelime eklendi'],
+    [String(sum('rev')), 'kart tekrarı'],
+    [activeDays + ' / ' + days.length, 'aktif gün'],
+    [String(vocab.list().filter((w) => cardState(w).ivl >= 21).length), 'iyi biliniyor (toplam)'],
+  ];
+  $('#statsTotals').replaceChildren(...totals.map(([v, t]) => { const d = el('div'); d.append(el('b', '', v), el('span', '', t)); return d; }));
+  $('#statsCharts').replaceChildren(
+    barChart('Okuma süresi (dakika)', labels, buckets.map((b) => Math.round(b.read / MIN)), (v) => v + ' dk'),
+    barChart('Deftere eklenen kelime', labels, buckets.map((b) => b.add), String),
+    barChart('Tekrar edilen kart', labels, buckets.map((b) => b.rev), String));
+}
+function openStats() { flushStats(); closePanels(); $('#statsModal').hidden = false; renderStats(); $('#statsClose').focus(); }
+$('#vsStats').addEventListener('click', openStats);
+$('#statsClose').addEventListener('click', () => { $('#statsModal').hidden = true; });
+$('#statsModal').addEventListener('click', (e) => { if (e.target === $('#statsModal')) $('#statsModal').hidden = true; });
+$('#statsRange').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { statsRange = Number(b.dataset.v); renderStats(); } });
+
 /* ================= Multi-word selection ================= */
 const pick = { on: false, items: new Map() };
 function setPickMode(on) {
@@ -2965,10 +3339,15 @@ function renderNotebookList() {
   const ul = $('#nbItems');
   ul.replaceChildren();
   const q = $('#nbSearch').value.trim().toLowerCase();
-  const list = vocab.list().sort((a, b) => (b.added || 0) - (a.added || 0))
-    .filter((w) => !q || [w.head, w.tr, w.word, w.def].some((x) => (x || '').toLowerCase().includes(q)));
+  fillNbBooks();
+  const fBook = $('#nbBook').value, fState = $('#nbState').value, now = Date.now();
+  const list = vocab.list()
+    .filter((w) => !q || [w.head, w.tr, w.word, w.def].some((x) => (x || '').toLowerCase().includes(q)))
+    .filter((w) => !fBook || w.book === fBook)
+    .filter((w) => !fState || (fState === 'due' ? (w.due || 0) <= now : wordState(w) === fState))
+    .sort(NB_SORT[$('#nbSort').value] || NB_SORT.new);
   if (!list.length) {
-    ul.appendChild(el('li', 'nb-empty', vocab.words.size ? 'Aramana uyan kelime yok.' : 'Defterin boş. Okurken bilmediğin bir kelimeye dokun ve “Deftere ekle”ye bas. Eklediğin kelimeler metinde altı çizili görünür.'));
+    ul.appendChild(el('li', 'nb-empty', vocab.words.size ? 'Aramana ya da seçtiğin filtreye uyan kelime yok.' :'Defterin boş. Okurken bilmediğin bir kelimeye dokun ve “Deftere ekle”ye bas. Eklediğin kelimeler metinde altı çizili görünür.'));
     return;
   }
   for (const w of list) {
@@ -3041,8 +3420,8 @@ function whenText(ms) {
 }
 
 // Today's queue: due reviews (oldest first), then new words up to the daily limit.
-function reviewQueue() {
-  const now = Date.now(), all = vocab.list();
+function reviewQueue(bookTitle) {
+  const now = Date.now(), all = vocab.list().filter((w) => !bookTitle || w.book === bookTitle);
   const due = all.filter((w) => cardState(w).reps > 0 && (w.due || 0) <= now).sort((a, b) => (a.due || 0) - (b.due || 0));
   const newLimit = prefs.newPerDay === 'all' ? Infinity : Math.max(0, Number(prefs.newPerDay || 20) - statDay().new);
   const fresh = all.filter((w) => cardState(w).reps === 0 && (w.due || 0) <= now).sort((a, b) => (a.added || 0) - (b.added || 0)).slice(0, newLimit);
@@ -3076,9 +3455,9 @@ function answerOk(w, typed) {
   return !!t && [w.word, w.head, w.lemma, ...(w.forms || [])].some((x) => x && normWord(x) === t);
 }
 
-const review = { queue: [], done: 0, total: 0, revealed: false, type: 'en', typed: null, correct: null };
+const review = { queue: [], done: 0, total: 0, revealed: false, type: 'en', typed: null, correct: null, scope: '' };
 function startReview() {
-  review.queue = reviewQueue().map((w) => w.id);
+  review.queue = reviewQueue(review.scope).map((w) => w.id);
   review.done = 0; review.total = review.queue.length;
   nextCard();
 }
@@ -3092,6 +3471,19 @@ function nextCard() {
 function renderReview() {
   const pane = $('#nbReview');
   pane.replaceChildren();
+  // "Only this book": the open book, or the book chosen in the word list's filter
+  const scopeTitle = review.scope || [book && book.title, $('#nbBook').value].find((t) => t && vocab.list().some((x) => x.book === t)) || '';
+  if (scopeTitle) {
+    const sc = el('div', 'seg rv-scope');
+    const short = scopeTitle.length > 28 ? scopeTitle.slice(0, 27) + '…' : scopeTitle;
+    for (const [v, label] of [['', 'Tüm defter'], [scopeTitle, 'Sadece “' + short + '”']]) {
+      const b = el('button', '', label); b.type = 'button';
+      b.setAttribute('aria-pressed', String(review.scope === v));
+      b.addEventListener('click', () => { review.scope = v; startReview(); });
+      sc.appendChild(b);
+    }
+    pane.appendChild(sc);
+  }
   const modes = el('div', 'seg fc-modes');
   for (const [v, label] of CARD_TYPES) {
     const b = el('button', '', label); b.type = 'button';
@@ -3213,6 +3605,7 @@ async function grade(g) {
 /* ================= Panels ================= */
 function closePanels(keepScrim) {
   $('#tocDrawer').hidden = true; $('#prefs').hidden = true; $('#notebook').hidden = true; $('#searchDrawer').hidden = true;
+  $('#keysModal').hidden = true; $('#statsModal').hidden = true;
   if (!keepScrim) $('#scrim').hidden = true;
   $('#tocBtn').setAttribute('aria-expanded', 'false'); $('#prefsBtn').setAttribute('aria-expanded', 'false'); $('#nbBtn').setAttribute('aria-expanded', 'false');
   $('#searchBtn').setAttribute('aria-expanded', 'false');
@@ -3223,6 +3616,7 @@ $('#tocBtn').addEventListener('click', () => {
   if (open) {
     $('#tocDrawer').hidden = false; $('#scrim').hidden = false; $('#tocBtn').setAttribute('aria-expanded', 'true');
     setDrawerTab(drawerTab);
+    renderDrawerLevel();
     const c = document.querySelector('#tocList .current'); (c || $('#tocClose')).focus();
     if (c) c.scrollIntoView({ block: 'center' });
   }
@@ -3245,6 +3639,7 @@ document.querySelectorAll('#prefs .seg').forEach((seg) => seg.addEventListener('
   changePref(() => { prefs[seg.dataset.pref] = b.dataset.v; });
   if (seg.dataset.pref === 'goal' || seg.dataset.pref === 'newPerDay') vocab.listeners.forEach((fn) => fn());  // badge + strip
 }));
+$('#inkPick').addEventListener('input', () => changePref(() => { prefs.ink = $('#inkPick').value; }));
 $('#fsDown').addEventListener('click', () => changePref(() => { prefs.fs = Math.max(13, prefs.fs - 1); }));
 $('#fsUp').addEventListener('click', () => changePref(() => { prefs.fs = Math.min(32, prefs.fs + 1); }));
 $('#prevBtn').addEventListener('click', () => goTo(cur - 1, { frac: 0 }));
@@ -3305,7 +3700,7 @@ function edgeTap(e) {
   return true;
 }
 scroller.addEventListener('click', (e) => {  // taps on the page margins (outside the book text)
-  if (e.composedPath().includes($('#bookHost')) || e.target.closest('button, a, .chapter-end')) return;
+  if (e.composedPath().includes($('#bookHost')) || e.target.closest('button, a, .chapter-end, .chapter-start')) return;
   if (Date.now() < swallowClickUntil) return;
   edgeTap(e);
 });
@@ -3352,6 +3747,7 @@ async function openFile(file, saved) {
     const first = Math.max(0, book.spine.findIndex((s) => s.linear));
     await goTo(pos && pos.i < book.spine.length ? pos.i : first, { frac: pos ? pos.frac : 0 });
     scroller.focus({ preventScroll: true });
+    if (canProfile()) setTimeout(() => bookLevel().catch((e) => devlog('warn', 'book level: ' + e)), 1200);
   } catch (err) {
     console.error(err);
     releaseBook();
@@ -3370,6 +3766,7 @@ async function showLibrary() {
   closePanels();
   $('#reader').hidden = true; $('#library').hidden = false;
   delete document.body.dataset.read;
+  syncSystemBars();
   renderShelf(); renderVocabStrip();
 }
 
@@ -3426,6 +3823,8 @@ async function renderShelf() {
       cover.appendChild(g);
     }
     if (r.finished) cover.appendChild(el('span', 'book-done', 'Okundu ✓'));
+    const lv = store.get('level:' + r.id, null);
+    if (lv && lv.level) { const b = el('span', 'book-level', '≈' + lv.level); b.title = 'Tahmini seviye: ' + fitText(lv.level); cover.appendChild(b); }
     open.append(cover, el('div', 'book-title', r.title), el('div', 'book-author', r.author || 'Yazar bilinmiyor'));
     open.addEventListener('click', () => openFile(r.file, r));
     const pct = Math.round((r.percent || 0) * 100);
@@ -3442,7 +3841,7 @@ async function renderShelf() {
       }
       clearTimeout(t);
       await books.del(r.id);
-      store.del('pos:' + r.id);
+      store.del('pos:' + r.id); store.del('level:' + r.id);
       renderShelf();
     });
     const mark = el('button', 'book-remove', r.finished ? 'Okunmadı yap' : 'Okundu say'); mark.type = 'button';
@@ -3717,6 +4116,7 @@ applyPrefs();
 updateListenBtn();
 vocab.changed();
 await renderShelf();
+syncSystemBars();
 if (host) {
   // a book passed on the command line ("Open with" / double-clicked .epub)
   const f = await host.api.initial_file();

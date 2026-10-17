@@ -1,7 +1,7 @@
 """Ayraç desktop app: the EPUB reader page in a native window (pywebview / Edge WebView2).
 
 The page (web/index.html, built from ../ayrac.html) talks to this file through `window.pywebview.api`:
-settings, vocabulary and reading positions go to %APPDATA%/Ayrac/data.json, books to %APPDATA%/Ayrac/books,
+settings, vocabulary and reading positions go to %APPDATA%/Ayrac/data.sqlite, books to %APPDATA%/Ayrac/books,
 and Claude requests go to the Anthropic API with the key the user saved (Windows Credential Manager).
 """
 
@@ -163,6 +163,33 @@ class Dictionary:
             if self._entry(v):
                 return v, None
         return None, None
+
+    def profile(self, words):
+        """{word: [lemma, zipf]} for many words at once (book difficulty, hard words before a chapter).
+        zipf is the lemma's frequency, or the word's own when the lemma has none; words the frequency list
+        does not know (mostly names) are left out."""
+        out = {}
+        for word in words:
+            w = (word or "").lower().replace("’", "'").strip(" '")
+            if not w or w in out:
+                continue
+            f = self._form(w)
+            lemma = f[0].lower() if f else w
+            z = self._zipf(lemma)
+            if z is None and lemma == w:
+                for v in self._variants(w):
+                    z = self._zipf(v)
+                    if z is not None:
+                        lemma = v
+                        break
+            own = self._zipf(w) if lemma != w else None
+            if own is not None:
+                if z is None or own - z >= 1:  # far more common than its "lemma": "the" is listed as a form of "thee"
+                    lemma = w
+                z = own if z is None else max(z, own)
+            if z is not None:
+                out[w] = [lemma, round(z, 2)]
+        return out
 
     def lookup(self, word, prev=None, nxt=None):
         w = (word or "").lower().replace("’", "'").strip(" '")
@@ -374,6 +401,11 @@ class Api:
         if not d:
             return [{"found": False, "unavailable": True} for _ in items]
         return [d.lookup(i.get("word"), i.get("prev"), i.get("next")) for i in items]
+
+    def dict_profile(self, words):
+        """{word: [lemma, zipf]} for a list of words; None without the dictionary."""
+        d = self._dictionary()
+        return d.profile(words[:60000]) if d else None
 
     # ---------- Cambridge Dictionary, shown as its own website in an app window ----------
     def open_cambridge(self, word):

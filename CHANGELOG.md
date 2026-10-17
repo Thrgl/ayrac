@@ -2,6 +2,17 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.2.0 — 2026-10-17
+- Kitabın seviyesi: kitap açılınca sözlükteki kelime sıklıklarından tahmini seviye hesaplanır (kelimelerin %95'ini kapsayan seviye). Kitaplıkta kapakta "≈B1" rozeti; İçindekiler panelinde "seviyene uygun / biraz zorlayıcı / zor" ve senin seviyendeki kelimelerin oranı.
+- Bölüm başında zor kelimeler: okunmamış bir bölüme başlarken, seviyenin üstündeki en sık 12 kelime anlamlarıyla gösterilir; "Deftere", "Biliyorum" ya da "Kalanların hepsini deftere ekle". Ayarlar → "Bölüm başında zor kelimeler" ile kapatılabilir.
+- "Biliyorum": kelime kartında yeni düğme. Bilinen kelimeler zor kelime listelerinde bir daha çıkmaz.
+- Defterde sıralama (en yeni, en eski, A→Z, tekrar zamanı, en zor önce) ve filtre (kitap, durum: yeni / öğreniliyor / iyi biliniyor / tekrarı gelmiş).
+- Tekrarda "Sadece bu kitap": açık kitabın (ya da filtrede seçilen kitabın) kelimeleriyle tekrar.
+- İlerleme grafiği (kitaplıkta "İlerleme"): 7 gün, 30 gün ya da 12 hafta için okuma süresi, eklenen kelime ve tekrar sayısı.
+- Yazı rengi ayarı (Ayarlar → Yazı rengi): temaya göre ya da beyaz, krem, kehribar, gri, kahve, siyah, ya da istediğin renk.
+- Android: ekranın kenarları, üstteki durum çubuğu ve alttaki gezinme çubuğu artık sayfanın rengini alır (önce gece temasında da açık gri kalıyordu).
+- Arayüzün büyük harfli etiketlerinde "İ" doğru yazılır.
+
 ## 2.1.0 — 2026-10-17
 - Yer imleri: üst çubuktaki "Yer imi" düğmesi ya da B tuşu. Bir kitapta istediğin kadar yer imi.
 - Vurgulama ve not: metni seç, dört renkten birini ya da "Not ekle"yi seç. Vurgulu bir kelimeye dokununca notu görür, düzenler ya da vurguyu kaldırırsın. Yazı boyu ya da sayfa düzeni değişse de vurgular yerinde kalır.
