@@ -86,6 +86,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .vs-stat { display: grid; gap: 2px; }
 .vs-stat b { font-family: var(--font-display); font-size: 1.7rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
 .vs-stat span { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+.vs-goal-bar { display: block; height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 2px; }
+.vs-goal-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.vs-goal.done b { color: var(--good); }
+.vs-goal.done .vs-goal-bar i { background: var(--good); }
 .vs-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .btn-ghost { border: 1px solid var(--line); background: none; color: var(--fg); border-radius: 999px; padding: 10px 18px; font-weight: 500; }
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
@@ -337,11 +341,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .fc-sent { font-family: var(--font-read); color: var(--ink-soft); line-height: 1.5; }
 .fc-back { display: grid; gap: 8px; border-top: 1px dashed var(--rline); padding-top: 12px; width: 100%; }
 .fc-back .wc-tr { font-size: 1.25rem; }
-.fc-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.fc-grade button { border-radius: 12px; padding: 12px 10px; font-weight: 600; border: 1px solid var(--rline); background: none; color: var(--ink); display: grid; gap: 2px; }
-.fc-grade button small { font-weight: 400; color: var(--ink-soft); font-size: .75rem; }
-.fc-grade .no:hover { border-color: var(--bad); color: var(--bad); }
-.fc-grade .yes:hover { border-color: var(--good); color: var(--good); }
+.fc-grade { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.fc-grade button { border-radius: 12px; padding: 10px 4px; font-weight: 600; border: 1px solid var(--rline); background: none; color: var(--ink); display: grid; gap: 2px; font-size: .9rem; }
+.fc-grade button small { font-weight: 400; color: var(--ink-soft); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.fc-grade .again:hover, .fc-grade .again.suggested { border-color: var(--bad); color: var(--bad); }
+.fc-grade .hard:hover { border-color: var(--ink-soft); }
+.fc-grade .good:hover, .fc-grade .good.suggested, .fc-grade .easy:hover { border-color: var(--good); color: var(--good); }
+.fc-grade .suggested { border-width: 2px; }
+.fc-modes { margin-bottom: 4px; }
+.fc-modes button { font-size: .78rem; padding: 6px 2px; }
+.fc-ask { font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); font-weight: 600; }
+.fc-word-tr { font-family: var(--font-ui); font-size: 1.5rem; }
+.fc-hint { font-size: .85rem; color: var(--ink-soft); }
+.fc-blank { display: inline-block; min-width: 4em; border-bottom: 2px solid var(--rlink); color: transparent; }
+.fc-answer { display: flex; gap: 8px; width: 100%; }
+.fc-answer .field { flex: 1; min-width: 0; text-align: center; font-size: 1.05rem; }
+.fc-result { font-weight: 600; font-size: .92rem; border-radius: 10px; padding: 8px 12px; width: 100%; }
+.fc-result.ok { color: var(--good); background: color-mix(in srgb, var(--good) 11%, transparent); }
+.fc-result.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
 .kbd-hint { font-size: .75rem; color: var(--ink-soft); text-align: center; }
 
 .app-foot { display: flex; gap: 6px; align-items: baseline; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); padding-top: 14px; font-variant-numeric: tabular-nums; }
@@ -414,6 +431,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
     <section class="vocab-strip" id="vocabStrip" aria-label="Kelime defteri" hidden>
       <div class="vs-stats">
+        <div class="vs-stat vs-goal" id="vsGoal" title="Bugünkü okuma süresi / günlük hedef (dakika). Ayarlar → Günlük hedef">
+          <b id="vsToday">0 / 15</b><span>dk okudun bugün</span>
+          <i class="vs-goal-bar"><i id="vsGoalFill"></i></i>
+        </div>
+        <div class="vs-stat" title="Art arda en az 5 dk okuduğun ya da 10 kart tekrar ettiğin günler"><b id="vsStreak">0</b><span>günlük seri</span></div>
         <div class="vs-stat"><b id="vsCount">0</b><span>kelime defterde</span></div>
         <div class="vs-stat"><b id="vsDue">0</b><span>tekrar bekliyor</span></div>
         <div class="vs-stat"><b id="vsLearned">0</b><span>iyi biliniyor</span></div>
@@ -537,6 +559,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
         <div class="seg" data-pref="mark">
           <button type="button" data-v="on">Altı çizili</button>
           <button type="button" data-v="off">Gizli</button>
+        </div>
+      </div>
+      <div class="setting"><span>Günlük okuma hedefi</span>
+        <div class="seg" data-pref="goal">
+          <button type="button" data-v="10">10 dk</button>
+          <button type="button" data-v="15">15 dk</button>
+          <button type="button" data-v="30">30 dk</button>
+          <button type="button" data-v="60">60 dk</button>
+        </div>
+      </div>
+      <div class="setting"><span>Günde yeni kelime (tekrarda)</span>
+        <div class="seg" data-pref="newPerDay">
+          <button type="button" data-v="10">10</button>
+          <button type="button" data-v="20">20</button>
+          <button type="button" data-v="40">40</button>
+          <button type="button" data-v="all">Sınırsız</button>
         </div>
       </div>
     </div>
@@ -1071,7 +1109,7 @@ const FONTS = {
   atkinson: '"Atkinson Hyperlegible", Verdana, sans-serif',
   book: '',
 };
-const prefs = Object.assign({ theme: 'auto', font: 'literata', fs: 19, lh: '1.65', width: '38em', level: 'B1', accent: 'en-US', rate: '0.9', mark: 'on' }, store.get('prefs', {}));
+const prefs = Object.assign({ theme: 'auto', font: 'literata', fs: 19, lh: '1.65', width: '38em', level: 'B1', accent: 'en-US', rate: '0.9', mark: 'on', goal: '15', newPerDay: '20', cardMode: 'mix' }, store.get('prefs', {}));
 function applyPrefs() {
   const r = $('#reader');
   if (!r.hidden) document.body.dataset.read = prefs.theme;
@@ -1539,7 +1577,41 @@ function markSavedWords() {
   if (!shadow) return;
   for (const w of shadow.querySelectorAll('x-w')) w.classList.toggle('saved', !!savedFor(w.textContent));
 }
-const dueWords = () => vocab.list().filter((w) => (w.due || 0) <= Date.now());
+const dueWords = () => reviewQueue();
+
+/* ================= Daily goal, reading time, streak =================
+   stats = { 'YYYY-MM-DD': { read: ms, rev: cards graded, new: new words seen } }, kept ~400 days.
+   Reading time counts while a book is open, the window is visible and you did something in the last 2 minutes
+   (scroll, tap, key) or the book is being read aloud. A day counts for the streak with 5+ minutes or 10+ cards. */
+const stats = { data: store.get('stats', {}), dirty: false, lastActive: 0 };
+const dayKey = (t = new Date()) => t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+function statDay(k = dayKey()) { return stats.data[k] || { read: 0, rev: 0, new: 0 }; }
+function bumpStat(field, n) {
+  const k = dayKey();
+  const d = stats.data[k] = Object.assign({ read: 0, rev: 0, new: 0 }, stats.data[k]);
+  d[field] += n; stats.dirty = true;
+}
+function flushStats() {
+  if (!stats.dirty) return;
+  const keep = dayKey(new Date(Date.now() - 400 * DAY));
+  for (const k of Object.keys(stats.data)) if (k < keep) delete stats.data[k];
+  store.set('stats', stats.data); stats.dirty = false;
+}
+const activeDay = (d) => d.read >= 5 * MIN || d.rev >= 10;
+function streak() {
+  let n = 0, t = new Date();
+  if (!activeDay(statDay(dayKey(t)))) t = new Date(t.getTime() - DAY);  // today still counts until midnight
+  while (activeDay(statDay(dayKey(t)))) { n++; t = new Date(t.getTime() - DAY); }
+  return n;
+}
+['scroll', 'pointerdown', 'keydown', 'wheel'].forEach((ev) => window.addEventListener(ev, () => { stats.lastActive = Date.now(); }, { passive: true, capture: true }));
+setInterval(() => {
+  const reading = !$('#reader').hidden && document.visibilityState === 'visible' && (Date.now() - stats.lastActive < 2 * MIN || (typeof tts !== 'undefined' && tts.on));
+  if (reading) bumpStat('read', 15000);
+}, 15000);
+setInterval(flushStats, 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushStats(); });
+window.addEventListener('pagehide', flushStats);
 vocab.listeners.push(() => {
   rebuildForms();
   markSavedWords();
@@ -1557,10 +1629,17 @@ vocab.listeners.push(() => {
 });
 function renderVocabStrip() {
   const list = vocab.list();
-  $('#vocabStrip').hidden = !list.length;
+  const today = statDay(), goal = Number(prefs.goal || 15), mins = Math.floor(today.read / MIN), s = streak();
+  $('#vocabStrip').hidden = !list.length && !mins && !s;
+  $('#vsToday').textContent = mins + ' / ' + goal;
+  $('#vsGoalFill').style.width = Math.min(100, (mins / goal) * 100) + '%';
+  $('#vsGoal').classList.toggle('done', mins >= goal);
+  $('#vsStreak').textContent = s;
   $('#vsCount').textContent = list.length;
   $('#vsDue').textContent = dueWords().length;
-  $('#vsLearned').textContent = list.filter((w) => (w.box || 1) >= 4).length;
+  $('#vsLearned').textContent = list.filter((w) => cardState(w).ivl >= 21).length;
+  $('#vsReview').hidden = !list.length;
+  $('#vsOpen').hidden = !list.length;
 }
 
 /* ================= Text to speech ================= */
@@ -2423,17 +2502,109 @@ function renderNotebookList() {
   }
 }
 
-/* Leitner boxes: a known word moves up a box and comes back later; a missed word returns to box 1. */
-const INTERVAL_DAYS = [0, 0, 1, 3, 7, 16, 40];
-const review = { queue: [], done: 0, total: 0, revealed: false };
+/* ================= Spaced repetition =================
+   Anki-style (SM-2): each card keeps an interval in days (ivl), an ease factor, reps and lapses.
+   Again: back in 10 minutes and the interval is halved (not reset). Hard ×1.2, Good ×ease, Easy ×ease×1.3.
+   Words saved before 1.8.0 only have a Leitner box; cardState() converts them. "box" is still written for the strip. */
+const MIN = 60000;
+const LEITNER_DAYS = [0, 0, 1, 3, 7, 16, 40];
+const GRADES = [['again', 'Tekrar'], ['hard', 'Zor'], ['good', 'İyi'], ['easy', 'Kolay']];
+function cardState(w) {
+  return {
+    ivl: w.ivl != null ? w.ivl : (w.reviews ? LEITNER_DAYS[w.box || 1] || 0 : 0),
+    ease: w.ease || 2.5,
+    reps: w.reps != null ? w.reps : (w.reviews || 0),
+    lapses: w.lapses || 0,
+  };
+}
+const boxOf = (ivl) => (ivl < 1 ? 1 : ivl < 3 ? 2 : ivl < 7 ? 3 : ivl < 16 ? 4 : ivl < 40 ? 5 : 6);
+// g: 0 again, 1 hard, 2 good, 3 easy. Returns the fields to store; fuzz=false gives the exact preview.
+function schedule(w, g, fuzz = true) {
+  const s = cardState(w), now = Date.now(), isNew = s.reps === 0 || s.ivl < 1;
+  let { ivl, ease, lapses } = s, due;
+  if (g === 0) {
+    if (!isNew) lapses++;
+    ease = Math.max(1.3, ease - 0.2);
+    ivl = isNew ? 0 : Math.max(1, Math.round(ivl * 0.5));
+    due = now + 10 * MIN;
+  } else {
+    if (g === 1) { ivl = isNew ? 1 : Math.max(ivl + 1, Math.round(ivl * 1.2)); ease = Math.max(1.3, ease - 0.15); }
+    if (g === 2) ivl = isNew ? 1 : Math.max(ivl + 1, Math.round(ivl * ease));
+    if (g === 3) { ivl = isNew ? 4 : Math.max(ivl + 2, Math.round(ivl * ease * 1.3)); ease += 0.15; }
+    if (fuzz && ivl >= 3) ivl = Math.round(ivl * (0.95 + Math.random() * 0.1));
+    due = now + ivl * DAY;
+  }
+  return { ivl, ease: Math.round(ease * 100) / 100, reps: s.reps + 1, lapses, due, box: boxOf(ivl), last: now, reviews: (w.reviews || 0) + 1 };
+}
+function whenText(ms) {
+  const d = ms / DAY;
+  if (d < 1 / 24) return Math.max(1, Math.round(ms / MIN)) + ' dk';
+  if (d < 1) return Math.round(ms / 3600000) + ' sa';
+  if (d < 30) return Math.round(d) + ' gün';
+  if (d < 365) return Math.round(d / 30) + ' ay';
+  return (Math.round(d / 36.5) / 10) + ' yıl';
+}
+
+// Today's queue: due reviews (oldest first), then new words up to the daily limit.
+function reviewQueue() {
+  const now = Date.now(), all = vocab.list();
+  const due = all.filter((w) => cardState(w).reps > 0 && (w.due || 0) <= now).sort((a, b) => (a.due || 0) - (b.due || 0));
+  const newLimit = prefs.newPerDay === 'all' ? Infinity : Math.max(0, Number(prefs.newPerDay || 20) - statDay().new);
+  const fresh = all.filter((w) => cardState(w).reps === 0 && (w.due || 0) <= now).sort((a, b) => (a.added || 0) - (b.added || 0)).slice(0, newLimit);
+  return [...due, ...fresh];
+}
+
+/* Card types: en (English → Turkish), tr (Turkish → English), cloze (fill the blank in the book sentence),
+   listen (hear the word, type it). "mix" starts each new word as en, then rotates through what the word allows. */
+const CARD_TYPES = [['mix', 'Karışık'], ['en', 'İng → Tr'], ['tr', 'Tr → İng'], ['cloze', 'Boşluk'], ['listen', 'Dinle-yaz']];
+function blankable(w) {
+  const target = w.word || w.head;
+  return !!(w.sentence && target && new RegExp('(^|[^\\p{L}])' + target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^\\p{L}]|$)', 'iu').test(w.sentence));
+}
+function typesFor(w) {
+  const t = ['en'];
+  if (w.tr) t.push('tr');
+  if (blankable(w)) t.push('cloze');
+  if (canSpeak && !w.phrase) t.push('listen');
+  return t;
+}
+function cardTypeFor(w) {
+  const ok = typesFor(w), mode = prefs.cardMode || 'mix';
+  if (mode !== 'mix') return ok.includes(mode) ? mode : 'en';
+  const reps = cardState(w).reps;
+  if (reps === 0) return 'en';
+  let h = 0; for (const ch of w.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return ok[(reps + h) % ok.length];
+}
+function answerOk(w, typed) {
+  const t = normWord(typed.trim());
+  return !!t && [w.word, w.head, w.lemma, ...(w.forms || [])].some((x) => x && normWord(x) === t);
+}
+
+const review = { queue: [], done: 0, total: 0, revealed: false, type: 'en', typed: null, correct: null };
 function startReview() {
-  review.queue = dueWords().sort((a, b) => (a.due || 0) - (b.due || 0)).map((w) => w.id);
-  review.done = 0; review.total = review.queue.length; review.revealed = false;
+  review.queue = reviewQueue().map((w) => w.id);
+  review.done = 0; review.total = review.queue.length;
+  nextCard();
+}
+function nextCard() {
+  review.revealed = false; review.typed = null; review.correct = null;
+  const w = vocab.words.get(review.queue[0]);
+  review.type = w ? cardTypeFor(w) : 'en';
   renderReview();
+  if (w && review.type === 'listen') setTimeout(() => say(w.head, 0.85), 250);
 }
 function renderReview() {
   const pane = $('#nbReview');
   pane.replaceChildren();
+  const modes = el('div', 'seg fc-modes');
+  for (const [v, label] of CARD_TYPES) {
+    const b = el('button', '', label); b.type = 'button';
+    b.setAttribute('aria-pressed', String((prefs.cardMode || 'mix') === v));
+    b.addEventListener('click', () => { prefs.cardMode = v; store.set('prefs', prefs); nextCard(); });
+    modes.appendChild(b);
+  }
+  pane.appendChild(modes);
   const w = vocab.words.get(review.queue[0]);
   if (!w) {
     const fc = el('div', 'fc');
@@ -2441,56 +2612,107 @@ function renderReview() {
     if (!all.length) fc.appendChild(el('p', 'nb-empty', 'Tekrar edecek kelime yok. Önce okurken birkaç kelimeyi deftere ekle.'));
     else {
       const next = all.reduce((m, x) => Math.min(m, x.due || 0), Infinity);
-      const days = Math.max(0, Math.ceil((next - Date.now()) / DAY));
-      fc.appendChild(el('p', 'nb-empty', (review.total ? review.total + ' kelimeyi tekrar ettin. ' : 'Şu an tekrar zamanı gelen kelime yok. ') + (days <= 0 ? 'Sıradaki tekrar bugün.' : days === 1 ? 'Sıradaki tekrar yarın.' : 'Sıradaki tekrar ' + days + ' gün sonra.')));
+      const waitingNew = all.filter((x) => cardState(x).reps === 0).length;
+      const parts = [review.total ? review.done + ' kartı bitirdin.' : 'Şu an tekrar zamanı gelen kelime yok.'];
+      if (next > Date.now()) parts.push('Sıradaki tekrar ' + whenText(next - Date.now()) + ' sonra.');
+      if (waitingNew && prefs.newPerDay !== 'all') parts.push('Bugünkü yeni kelime sınırına ulaştın (' + (prefs.newPerDay || 20) + '); ' + waitingNew + ' yeni kelime yarın gelecek.');
+      fc.appendChild(el('p', 'nb-empty', parts.join(' ')));
     }
     pane.appendChild(fc);
     return;
   }
   const fc = el('div', 'fc');
+  const st = cardState(w);
   const top = el('div', 'fc-top');
-  top.append(el('span', '', (review.done + 1) + ' / ' + Math.max(review.total, review.done + review.queue.length)), boxes(w.box || 1));
+  top.append(el('span', '', (review.done + 1) + ' / ' + Math.max(review.total, review.done + review.queue.length) + (st.reps === 0 ? ' · yeni' : '')), boxes(boxOf(st.ivl)));
   const bar = el('div', 'fc-bar'); const fill = el('i'); fill.style.width = (review.total ? Math.min(100, review.done / review.total * 100) : 0) + '%'; bar.appendChild(fill);
   const card = el('div', 'fc-card');
-  const word = el('div', 'fc-word', w.head);
-  card.appendChild(word);
-  if (canSpeak) { const s = el('button', 'btn'); s.type = 'button'; s.innerHTML = SPEAK_SVG + '<span>Dinle</span>'; s.addEventListener('click', () => say(w.head, 0.9)); card.appendChild(s); }
-  if (w.sentence) { const s = el('div', 'fc-sent'); markIn(s, w.sentence, w.word || w.head); card.appendChild(s); }
+  const speakBtn = (text) => { const s = el('button', 'btn'); s.type = 'button'; s.innerHTML = SPEAK_SVG + '<span>Dinle</span>'; s.addEventListener('click', () => say(text, 0.85)); return s; };
+  const sentence = (blank) => {
+    const s = el('div', 'fc-sent');
+    if (blank) {
+      const target = w.word || w.head;
+      const i = w.sentence.toLowerCase().search(new RegExp('(?<![\\p{L}])' + target.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'u'));
+      s.append(document.createTextNode(w.sentence.slice(0, i)), el('span', 'fc-blank', '_____'), document.createTextNode(w.sentence.slice(i + target.length)));
+    } else markIn(s, w.sentence, w.word || w.head);
+    return s;
+  };
+  const t = review.type;
+  // front
+  if (t === 'en') {
+    card.appendChild(el('div', 'fc-word', w.head));
+    if (canSpeak) card.appendChild(speakBtn(w.head));
+    if (w.sentence) card.appendChild(sentence(false));
+  } else if (t === 'tr') {
+    card.appendChild(el('div', 'fc-ask', 'İngilizcesi ne?'));
+    card.appendChild(el('div', 'fc-word fc-word-tr', w.tr));
+    if (w.pos) card.appendChild(el('span', 'chip', w.pos));
+    if (review.revealed && canSpeak) card.appendChild(speakBtn(w.head));
+  } else if (t === 'cloze') {
+    card.appendChild(el('div', 'fc-ask', 'Boşluğa hangi kelime gelir?'));
+    card.appendChild(sentence(!review.revealed));
+    if (w.tr) card.appendChild(el('div', 'fc-hint', 'İpucu: ' + w.tr));
+  } else if (t === 'listen') {
+    card.appendChild(el('div', 'fc-ask', 'Dinle ve duyduğun kelimeyi yaz'));
+    card.appendChild(speakBtn(w.head));
+  }
+  // typed answer
+  if ((t === 'cloze' || t === 'listen') && !review.revealed) {
+    const form = el('form', 'fc-answer');
+    const inp = el('input', 'field'); inp.id = 'fcInput'; inp.type = 'text'; inp.autocomplete = 'off'; inp.spellcheck = false; inp.placeholder = 'Kelimeyi yaz';
+    const go = el('button', 'btn solid', 'Kontrol et'); go.type = 'submit';
+    form.append(inp, go);
+    form.addEventListener('submit', (e) => { e.preventDefault(); review.typed = inp.value; review.correct = answerOk(w, inp.value); review.revealed = true; renderReview(); });
+    card.appendChild(form);
+    setTimeout(() => inp.focus(), 30);
+  }
+  if (review.revealed && review.typed != null) {
+    const r = el('div', 'fc-result ' + (review.correct ? 'ok' : 'bad'));
+    r.textContent = review.correct ? 'Doğru: ' + w.head : (review.typed.trim() ? 'Senin cevabın: ' + review.typed.trim() + ' · Doğrusu: ' + (w.word || w.head) : 'Doğrusu: ' + (w.word || w.head));
+    card.appendChild(r);
+  }
+  // back
   const back = el('div', 'fc-back'); back.hidden = !review.revealed;
+  if (t !== 'en') back.appendChild(el('div', 'fc-word', w.head));
   if (w.ipa) back.appendChild(el('div', 'wc-ipa', '/' + w.ipa + '/'));
-  back.appendChild(el('div', 'wc-tr', w.tr || '(anlam yazılmamış)'));
+  if (t !== 'tr') back.appendChild(el('div', 'wc-tr', w.tr || '(anlam yazılmamış)'));
   if (w.def) back.appendChild(el('div', 'wc-def', w.def));
+  if (t !== 'en' && t !== 'cloze' && w.sentence) back.appendChild(sentence(false));
   if (w.example) { const ex = el('div', 'wc-ex', w.example); if (w.exampleTr) ex.appendChild(el('small', '', w.exampleTr)); back.appendChild(ex); }
   card.appendChild(back);
   fc.append(top, bar, card);
   if (!review.revealed) {
-    const rev = el('button', 'btn solid', 'Anlamını göster'); rev.type = 'button'; rev.style.justifySelf = 'center';
-    rev.addEventListener('click', () => { review.revealed = true; renderReview(); });
-    fc.append(rev, el('div', 'kbd-hint', 'Önce anlamını kendin hatırlamaya çalış. (Boşluk: göster)'));
+    if (t === 'en' || t === 'tr') {
+      const rev = el('button', 'btn solid', t === 'en' ? 'Anlamını göster' : 'Cevabı göster'); rev.type = 'button'; rev.style.justifySelf = 'center';
+      rev.addEventListener('click', () => { review.revealed = true; renderReview(); });
+      fc.append(rev, el('div', 'kbd-hint', 'Önce kendin hatırlamaya çalış. (Boşluk: göster)'));
+    } else fc.appendChild(el('div', 'kbd-hint', 'Enter: kontrol et'));
   } else {
     const g = el('div', 'fc-grade');
-    const no = el('button', 'no'); no.type = 'button'; no.append(el('span', '', 'Bilemedim'), el('small', '', 'birazdan tekrar sorulur'));
-    const yes = el('button', 'yes'); yes.type = 'button';
-    const nextBox = Math.min(6, (w.box || 1) + 1);
-    yes.append(el('span', '', 'Bildim'), el('small', '', INTERVAL_DAYS[nextBox] === 1 ? 'yarın tekrar' : INTERVAL_DAYS[nextBox] + ' gün sonra tekrar'));
-    no.addEventListener('click', () => grade(false));
-    yes.addEventListener('click', () => grade(true));
-    g.append(no, yes);
-    fc.append(g, el('div', 'kbd-hint', '← Bilemedim · Bildim →'));
+    const suggested = review.correct == null ? -1 : review.correct ? 2 : 0;
+    GRADES.forEach(([cls, label], k) => {
+      const b = el('button', cls + (k === suggested ? ' suggested' : '')); b.type = 'button';
+      const next = schedule(w, k, false);
+      b.append(el('span', '', label), el('small', '', whenText(next.due - Date.now())));
+      b.addEventListener('click', () => grade(k));
+      g.appendChild(b);
+    });
+    fc.append(g, el('div', 'kbd-hint', '1 Tekrar · 2 Zor · 3 İyi · 4 Kolay' + (suggested >= 0 ? ' · Enter: önerilen' : '')));
   }
   pane.appendChild(fc);
 }
-async function grade(known) {
+async function grade(g) {
   const id = review.queue.shift();
   const w = vocab.words.get(id);
-  review.revealed = false;
-  if (w) {
-    const upd = Object.assign({}, w, { reviews: (w.reviews || 0) + 1, last: Date.now() });
-    if (known) { upd.box = Math.min(6, (w.box || 1) + 1); upd.due = Date.now() + INTERVAL_DAYS[upd.box] * DAY; review.done++; }
-    else { upd.box = 1; upd.due = Date.now(); review.queue.push(id); }
-    renderReview();
-    await vocab.save(upd);
-  } else renderReview();
+  if (!w) { nextCard(); return; }
+  const wasNew = cardState(w).reps === 0;
+  const upd = Object.assign({}, w, schedule(w, g));
+  if (g === 0) review.queue.splice(Math.min(review.queue.length, 3), 0, id);  // see it again a few cards later
+  else review.done++;
+  bumpStat('rev', 1);
+  if (wasNew) bumpStat('new', 1);
+  nextCard();
+  await vocab.save(upd);
 }
 
 /* ================= Panels ================= */
@@ -2525,6 +2747,7 @@ document.addEventListener('click', (e) => {
 document.querySelectorAll('#prefs .seg').forEach((seg) => seg.addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   changePref(() => { prefs[seg.dataset.pref] = b.dataset.v; });
+  if (seg.dataset.pref === 'goal' || seg.dataset.pref === 'newPerDay') vocab.listeners.forEach((fn) => fn());  // badge + strip
 }));
 $('#fsDown').addEventListener('click', () => changePref(() => { prefs.fs = Math.max(13, prefs.fs - 1); }));
 $('#fsUp').addEventListener('click', () => changePref(() => { prefs.fs = Math.min(32, prefs.fs + 1); }));
@@ -2537,9 +2760,13 @@ document.addEventListener('keydown', (e) => {
   if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
   if (!$('#notebook').hidden) {
     if (nbTab !== 'review' || !review.queue.length) return;
-    if (!review.revealed && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); review.revealed = true; renderReview(); }
-    else if (review.revealed && e.key === 'ArrowLeft') { e.preventDefault(); grade(false); }
-    else if (review.revealed && e.key === 'ArrowRight') { e.preventDefault(); grade(true); }
+    const typedCard = review.type === 'cloze' || review.type === 'listen';
+    if (!review.revealed) {
+      if (!typedCard && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); review.revealed = true; renderReview(); }
+    } else if (['1', '2', '3', '4'].includes(e.key)) { e.preventDefault(); grade(Number(e.key) - 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); grade(0); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); grade(2); }
+    else if (e.key === 'Enter' && review.correct != null) { e.preventDefault(); grade(review.correct ? 2 : 0); }
     return;
   }
   if ($('#reader').hidden || !$('#tocDrawer').hidden) return;
@@ -2609,7 +2836,7 @@ async function openFile(file, saved) {
 window.ayracOpen = openFile;
 
 async function showLibrary() {
-  stopReading(); closeWordCard();
+  stopReading(); closeWordCard(); flushStats();
   if (pick.on) setPickMode(false);
   if (book) { saveProgress(true); await new Promise((r) => setTimeout(r, 120)); }
   closePanels();
