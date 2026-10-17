@@ -18,7 +18,9 @@ Ayrac/
 ├── ayrac.html            Okuyucunun tamamı (HTML + CSS + JS). Masaüstü ve web aynı dosyayı kullanır.
 ├── CHANGELOG.md          Sürüm geçmişi
 ├── GELISTIRME.md         Bu dosya
+├── .gitignore            dist, releases, .sqlite ve .exe depoya girmez
 └── desktop/
+    ├── tests/            pytest: sözlük araması ve yedekleme
     ├── ayrac_app.py      Masaüstü uygulaması: pencere (pywebview), dosya kaydı, sözlük, Claude API, günlük
     ├── build.ps1         Derleme betiği → dist\Ayrac.exe ve releases\Ayrac-<sürüm>.exe
     ├── build_dict.py     Çevrimdışı sözlüğü (SQLite) Wiktionary verisinden üretir
@@ -47,6 +49,7 @@ Ayrac/
 | `ai_status`, `ai_set_key`, `ai_clear_key`, `ai_set_model`, `ask` | İsteğe bağlı Claude (Anthropic API). Anahtar Windows Kimlik Bilgileri Yöneticisi'nde |
 | `initial_file` | Komut satırından verilen .epub (Birlikte aç) |
 | `log`, `app_info`, `set_dev_mode`, `open_path` | Geliştirici modu ve günlük |
+| `backup_export`, `backup_import` | Yedek: tek ZIP (`ayrac-backup.json`, `data.json`, `books/`). Geri yüklemeden önce mevcut hâl `%APPDATA%\Ayrac\backups`'a yedeklenir |
 
 Sayfadaki `store` (ayarlar) ve `books` (kitaplık) nesneleri bu ikisini soyutlar; özellik kodu hangi sürümde çalıştığını bilmez. Masaüstünde Claude çağrıları da web'deki `sample` arayüzüyle aynı biçimde sarılır (`desktopSample()`).
 
@@ -94,9 +97,20 @@ Sözlük `.exe`'nin **içinde değil, yanında** durur (`dict\en-tr.sqlite`); uy
 
 ---
 
+## Sürüm kontrolü (git)
+
+Taşınabilir git: `%LOCALAPPDATA%\Programs\MinGit\cmd\git.exe` (PATH'te değil). Her sürüm kendi dalında geliştirilir (`v1.6.0` gibi), bitince `main`'e birleştirilip etiketlenir:
+
+```powershell
+$git = "$env:LOCALAPPDATA\Programs\MinGit\cmd\git.exe"
+& $git switch -c v1.7.0          # yeni sürüm dalı
+& $git add -A; & $git commit -m "..."
+& $git switch main; & $git merge --no-ff v1.7.0; & $git tag v1.7.0
+```
+
 ## Yeni sürüm çıkarma
 
-1. Değişikliği yap (`ayrac.html` ve/veya `desktop\ayrac_app.py`).
+1. Değişikliği yap (`ayrac.html` ve/veya `desktop\ayrac_app.py`), testleri çalıştır.
 2. `desktop\VERSION` dosyasındaki numarayı artır:
    - küçük düzeltme: `1.5.0 → 1.5.1`
    - yeni özellik: `1.5.0 → 1.6.0`
@@ -106,9 +120,11 @@ Sözlük `.exe`'nin **içinde değil, yanında** durur (`dict\en-tr.sqlite`); uy
 
 ```powershell
 $dest = "$env:LOCALAPPDATA\Programs\Ayrac"
-Get-Process Ayrac -EA SilentlyContinue | % { [void]$_.CloseMainWindow() }; Start-Sleep 3
-Get-Process Ayrac -EA SilentlyContinue | Stop-Process -Force
-Copy-Item desktop\dist\Ayrac.exe $dest -Force
+Get-Process Ayrac -EA SilentlyContinue | % { [void]$_.CloseMainWindow() }
+# Ayrac.exe iki süreçtir (PyInstaller); ikisi de kapanana kadar bekle, gerekirse zorla kapat
+foreach ($i in 1..20) { if (-not (Get-Process Ayrac -EA SilentlyContinue)) { break }; Start-Sleep 1
+  if ($i -eq 8) { Get-Process Ayrac -EA SilentlyContinue | Stop-Process -Force } }
+foreach ($i in 1..10) { try { Copy-Item desktop\dist\Ayrac.exe $dest -Force -ErrorAction Stop; break } catch { Start-Sleep 1 } }
 Copy-Item desktop\dist\dict\en-tr.sqlite "$dest\dict" -Force   # sadece sözlük değiştiyse
 Start-Process "$([Environment]::GetFolderPath('Desktop'))\Ayraç.lnk"
 ```
@@ -122,6 +138,12 @@ Start-Process "$([Environment]::GetFolderPath('Desktop'))\Ayraç.lnk"
 ## Test
 
 **Hızlı arayüz testi (tarayıcıda):** `ayrac.html`'yi bir test sayfasına sarıp `window.pywebview.api`'yi sahte (bellekte çalışan) bir nesneyle taklit etmek, masaüstü kod yolunu tarayıcıda denemeye yeter. Web kod yolu için `window.claude.use('sample')` taklit edilir. Kitap olarak `C:\Users\Tahir\Downloads\Its_Only_a_Trick-David_Evans.epub` kullanıldı.
+
+**Otomatik testler (`desktop\tests`):** sözlük araması (kalıplar, kök bulma, düzensiz çoğullar) ve yedekleme/geri yükleme. Sözlük testleri `en-tr.sqlite`'ı `AYRAC_DICT`, `%TEMP%\ayrac-build\dict` ya da `desktop\dist\dict` içinde arar; bulamazsa atlanır. Testler `APPDATA`'yı geçici bir klasöre çevirir, gerçek kitaplığa dokunmaz. Sözlük ya da arama mantığı her değiştiğinde çalıştır:
+
+```powershell
+& "$env:TEMP\ayrac-build\venv\Scripts\python.exe" -m pytest desktop\tests -q -p no:cacheprovider
+```
 
 **Python köprüsü:** `ayrac_app.Api` ve `ayrac_app.Dictionary` doğrudan içe aktarılıp çağrılabilir (veri klasörünü bozmamak için `APPDATA`'yı geçici bir klasöre yönlendirin).
 
@@ -206,10 +228,10 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 | Ne | Neden | Emek |
 |---|---|---|
-| **Klasörü git deposu yapmak** (`git init`, `desktop\dist`, `desktop\releases`, `*.sqlite` `.gitignore`'a) | Şu an sürüm kontrolü yok; `releases\` içindeki .exe'ler tek geri dönüş yolu. Bir değişikliğin neyi bozduğunu görmek imkânsız. | S |
-| **Veri yedeği: dışa/içe aktar** | Defter, okuma yerleri ve ayarlar tek bir `data.json`'da. Bir "Yedek al / Yedekten yükle" düğmesi (ZIP: `data.json` + `books\`) disk değişiminde ya da bozulmada her şeyi kurtarır. Web'de de defteri JSON olarak indirip yükleyebilmek gerekir. | S |
-| **Defterde altı çizme hatası** | `ayrac.html` `variants()` `-er`, `-est`, `-ly` eklerini de atıyor (Python tarafı bilerek atmıyor). Sonuç: defterde `on` varsa metindeki `only`, `ear` varsa `early`, `numb` varsa `number` da altı çizili görünür. Python'daki gibi yalnız çekim ekleri atılmalı, ya da önce kelimenin kendisi sözlükte aranmalı. | S |
-| **Otomatik testler** | `Dictionary.lookup` için küçük bir `pytest` dosyası (örn. `took off → take off`, `take it off`, `looked`, `travelled`, `children`). Sözlük her yeniden üretildiğinde ve arama mantığı değiştiğinde çalıştırılır. | S |
+| ✅ 1.6.0 — **Klasörü git deposu yapmak** (`git init`, `desktop\dist`, `desktop\releases`, `*.sqlite` `.gitignore`'a) | Şu an sürüm kontrolü yok; `releases\` içindeki .exe'ler tek geri dönüş yolu. Bir değişikliğin neyi bozduğunu görmek imkânsız. | S |
+| ✅ 1.6.0 — **Veri yedeği: dışa/içe aktar** | Defter, okuma yerleri ve ayarlar tek bir `data.json`'da. Bir "Yedek al / Yedekten yükle" düğmesi (ZIP: `data.json` + `books\`) disk değişiminde ya da bozulmada her şeyi kurtarır. Web'de de defteri JSON olarak indirip yükleyebilmek gerekir. | S |
+| ✅ 1.6.0 — **Defterde altı çizme hatası** | `ayrac.html` `variants()` `-er`, `-est`, `-ly` eklerini de atıyor (Python tarafı bilerek atmıyor). Sonuç: defterde `on` varsa metindeki `only`, `ear` varsa `early`, `numb` varsa `number` da altı çizili görünür. Python'daki gibi yalnız çekim ekleri atılmalı, ya da önce kelimenin kendisi sözlükte aranmalı. | S |
+| ✅ 1.6.0 — **Otomatik testler** | `Dictionary.lookup` için küçük bir `pytest` dosyası (örn. `took off → take off`, `take it off`, `looked`, `travelled`, `children`). Sözlük her yeniden üretildiğinde ve arama mantığı değiştiğinde çalıştırılır. | S |
 | **`data.json` her yazışta baştan yazılıyor** | Okuma yeri sık kaydediliyor; defter büyüdükçe (binlerce kelime) her kaydırmada tüm dosya yeniden yazılır. Okuma yerlerini ayrı dosyaya almak ya da `kv` için SQLite kullanmak yeterli. | M |
 | **Kitap köprüden base64 geçiyor** | `book_file` tüm EPUB'u base64 olarak JS'e yolluyor, `books_list` her açılışta bütün kapakları base64 gönderiyor. Büyük (resimli) kitaplarda ve kalabalık kitaplıkta yavaşlar. pywebview'in yerel HTTP sunucusundan dosya olarak servis etmek ya da kapakları küçük küçük resimlere (thumbnail) indirmek çözer. | M |
 
