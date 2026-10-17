@@ -1,0 +1,10 @@
+# Build output (rebuilt by desktop\build.ps1; releases are kept on disk, not in git)
+desktop/dist/
+desktop/releases/
+*.sqlite
+*.exe
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/

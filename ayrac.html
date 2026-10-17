@@ -1,0 +1,2666 @@
+<title>Ayraç EPUB Okuyucu</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Figtree:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,300..700;1,7..72,400..600&display=swap">
+<style>
+/* Layout: one-screen app. Library (drop zone, vocabulary strip, shelf) or reader (header / scrolling page / footer).
+   Book renders in a shadow root; every word becomes tappable for lookup. Notebook drawer slides in from the right. */
+:root {
+  --bg: #eef0ec;
+  --surface: #fafbf8;
+  --fg: #1c2420;
+  --muted: #5b6862;
+  --line: #d5dad4;
+  --accent: #2c5d4c;
+  --accent-ink: #f4f8f5;
+  --danger: #a3392b;
+  --good: #2f7a4f;
+  --bad: #b0412f;
+  --shadow: 0 1px 2px rgba(28, 36, 32, .06), 0 8px 28px rgba(28, 36, 32, .12);
+  --scrim: rgba(20, 26, 23, .38);
+  --paper: var(--surface); --ink: var(--fg); --ink-soft: var(--muted); --rline: var(--line); --rlink: var(--accent);
+  --sel: color-mix(in srgb, var(--accent) 26%, transparent);
+  --font-display: "Literata", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-ui: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-read: "Literata", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121715; --surface: #192019; --fg: #e1e6e2; --muted: #95a39c; --line: #2b3530;
+    --accent: #84c3aa; --accent-ink: #0f1a15; --danger: #e58a7c; --good: #7fc79a; --bad: #e58a7c;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45); --scrim: rgba(0,0,0,.55);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121715; --surface: #192019; --fg: #e1e6e2; --muted: #95a39c; --line: #2b3530;
+  --accent: #84c3aa; --accent-ink: #0f1a15; --danger: #e58a7c; --good: #7fc79a; --bad: #e58a7c;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45); --scrim: rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+/* explicit reading themes (chosen in the reader, applied while a book is open) */
+body[data-read="light"] { --paper: #fcfcfa; --ink: #1c2420; --ink-soft: #5b6862; --rline: #dcdfda; --rlink: #2c5d4c; --good: #2f7a4f; --bad: #b0412f; color-scheme: light; }
+body[data-read="sepia"] { --paper: #f1e7d3; --ink: #3a2f22; --ink-soft: #77664f; --rline: #ddcfb4; --rlink: #7a4a1f; --good: #3f7040; --bad: #a3392b; color-scheme: light; }
+body[data-read="night"] { --paper: #0f1211; --ink: #c9d0cb; --ink-soft: #7f8b85; --rline: #232a27; --rlink: #84c3aa; --good: #7fc79a; --bad: #e58a7c; color-scheme: dark; }
+body[data-read] { --sel: color-mix(in srgb, var(--rlink) 26%, transparent); }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 15px; overflow: hidden; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* ---------- Library ---------- */
+#library { height: 100%; overflow-y: auto; }
+.lib-inner { max-width: 980px; margin: 0 auto; padding-block: 40px 64px; display: grid; gap: 32px; }
+.brand { display: flex; align-items: flex-end; gap: 14px; }
+.ribbon { width: 18px; height: 44px; background: var(--accent); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); flex: none; }
+.brand h1 { margin: 0; font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: 2.6rem; line-height: 1; letter-spacing: -.01em; }
+.brand p { margin: 0 0 4px; color: var(--muted); }
+.brand-text { display: grid; gap: 8px; min-width: 0; }
+
+.drop {
+  border: 1.5px dashed var(--line); border-radius: 14px; background: var(--surface);
+  padding: 36px 24px; display: grid; justify-items: center; gap: 14px; text-align: center;
+  transition: border-color .15s;
+}
+.drop.over { border-color: var(--accent); }
+.drop h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 1.45rem; text-wrap: balance; }
+.drop p { margin: 0; color: var(--muted); max-width: 46ch; line-height: 1.5; }
+.btn-primary {
+  border: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink);
+  padding: 11px 22px; font-weight: 600; letter-spacing: .01em;
+}
+.btn-primary:hover { filter: brightness(1.08); }
+.facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; color: var(--muted); font-size: .85rem; }
+.facts span::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: middle; opacity: .7; }
+
+.vocab-strip {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px;
+}
+.vs-stats { display: flex; flex-wrap: wrap; gap: 6px 28px; align-items: baseline; min-width: 0; }
+.vs-stat { display: grid; gap: 2px; }
+.vs-stat b { font-family: var(--font-display); font-size: 1.7rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.vs-stat span { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+.vs-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-ghost { border: 1px solid var(--line); background: none; color: var(--fg); border-radius: 999px; padding: 10px 18px; font-weight: 500; }
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+.error { border: 1px solid var(--danger); color: var(--danger); background: var(--surface); padding: 12px 16px; border-radius: 10px; line-height: 1.45; }
+
+.shelf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
+.shelf-head h2 { margin: 0; font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); font-weight: 600; }
+.shelf-head span { color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 28px 22px; margin-top: 20px; }
+.shelf-empty { color: var(--muted); line-height: 1.55; margin: 18px 0 0; max-width: 60ch; }
+.book { display: grid; gap: 10px; min-width: 0; align-content: start; }
+.book-open { border: 0; padding: 0; background: none; text-align: left; display: grid; gap: 10px; }
+.cover {
+  aspect-ratio: 2 / 3; width: 100%; max-width: 100%; border-radius: 3px 8px 8px 3px; overflow: hidden;
+  background: var(--accent); box-shadow: var(--shadow); position: relative; transition: transform .2s ease;
+}
+.book-open:hover .cover { transform: translateY(-3px); }
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 7px; background: linear-gradient(90deg, rgba(0,0,0,.18), transparent); }
+.cover-gen { height: 100%; padding: 16px 14px 16px 18px; display: flex; flex-direction: column; justify-content: space-between; color: var(--accent-ink); }
+.cover-gen b { font-family: var(--font-display); font-weight: 500; font-size: 1.05rem; line-height: 1.2; overflow-wrap: anywhere; }
+.cover-gen small { opacity: .8; font-size: .78rem; }
+.book-title { font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.book-author { color: var(--muted); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.book-meta { display: flex; align-items: center; gap: 10px; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meter { flex: 1; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); }
+.book-remove { border: 0; background: none; color: var(--muted); font-size: .78rem; padding: 2px 0; justify-self: start; }
+.book-remove:hover, .book-remove.confirm { color: var(--danger); }
+
+/* ---------- Reader ---------- */
+#reader { height: 100%; display: flex; flex-direction: column; background: var(--paper); color: var(--ink); }
+.bar { display: flex; align-items: center; gap: 4px; padding-block: 8px; border-color: var(--rline); background: var(--paper); flex: none; position: relative; z-index: 3; }
+.topbar { border-bottom: 1px solid var(--rline); }
+.bottombar { border-top: 1px solid var(--rline); padding-block: 6px 8px; }
+.icon-btn {
+  border: 0; background: none; color: var(--ink-soft); border-radius: 8px; height: 36px; min-width: 36px; padding: 0 10px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: .88rem; font-weight: 500; flex: none; position: relative;
+}
+.icon-btn:hover:not(:disabled) { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.icon-btn[aria-expanded="true"], .icon-btn[aria-pressed="true"] { color: var(--ink); background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+.icon-btn svg { width: 18px; height: 18px; flex: none; }
+.badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--rlink); color: var(--paper); font-size: .68rem; font-weight: 700; display: inline-grid; place-items: center; font-variant-numeric: tabular-nums; }
+.titles { flex: 1; min-width: 0; text-align: center; line-height: 1.25; }
+.titles b { display: block; font-family: var(--font-display); font-weight: 500; font-size: .98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.titles small { color: var(--ink-soft); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.progress { position: absolute; left: 0; right: 0; top: -1px; height: 2px; }
+.progress i { display: block; height: 100%; width: 0; background: var(--rlink); transition: width .15s linear; }
+.where { flex: 1; min-width: 0; text-align: center; font-size: .8rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.where b { color: var(--ink); font-weight: 500; }
+.listen-on { color: var(--rlink) !important; }
+
+#scroller { flex: 1; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+#page { max-width: var(--measure, 38em); margin: 0 auto; padding-block: 44px 28px; font-family: var(--font-read); }
+.tap-hint { font-family: var(--font-ui); font-size: .8rem; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; margin: 0 0 22px; }
+.tap-hint button { border: 0; background: none; color: var(--ink-soft); text-decoration: underline; padding: 0; font-size: inherit; }
+#bookHost { display: block; min-height: 40vh; }
+.chapter-end { margin: 48px 0 24px; padding-top: 22px; border-top: 1px solid var(--rline); display: grid; justify-items: center; gap: 12px; text-align: center; font-family: var(--font-ui); }
+.chapter-end small { color: var(--ink-soft); font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; }
+.chapter-end .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 100%; }
+.end-mark { font-family: var(--font-display); font-style: italic; color: var(--ink-soft); font-size: 1.1rem; }
+.loading { color: var(--ink-soft); text-align: center; padding: 80px 0; font-family: var(--font-ui); }
+
+.btn {
+  border: 1px solid var(--rline); background: none; color: var(--ink); border-radius: 999px; padding: 8px 15px;
+  font-weight: 500; font-size: .88rem; display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.btn:hover { border-color: var(--rlink); color: var(--rlink); }
+.btn.solid { background: var(--rlink); border-color: var(--rlink); color: var(--paper); font-weight: 600; }
+.btn.solid:hover { filter: brightness(1.08); color: var(--paper); }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* Quiz */
+.quiz { width: 100%; text-align: left; display: grid; gap: 22px; margin-top: 6px; }
+.quiz-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.quiz-head b { font-family: var(--font-display); font-weight: 500; font-size: 1.15rem; }
+.quiz-head span { color: var(--ink-soft); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.qz { display: grid; gap: 8px; }
+.qz p { margin: 0; font-weight: 600; line-height: 1.4; font-family: var(--font-read); font-size: 1.02rem; }
+.qz-opt { text-align: left; border: 1px solid var(--rline); background: none; color: var(--ink); border-radius: 10px; padding: 10px 12px; line-height: 1.35; font-family: var(--font-read); }
+.qz-opt:hover:not(:disabled) { border-color: var(--rlink); }
+.qz-opt:disabled { cursor: default; }
+.qz-opt.right { border-color: var(--good); background: color-mix(in srgb, var(--good) 13%, transparent); }
+.qz-opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 11%, transparent); }
+.qz-why { font-size: .88rem; color: var(--ink-soft); line-height: 1.5; }
+.qz-why b { color: var(--ink); }
+.note { color: var(--ink-soft); font-size: .88rem; line-height: 1.5; }
+
+/* Panels */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 10; }
+.drawer {
+  position: fixed; top: 0; bottom: 0; left: 0; z-index: 11; width: min(380px, 88vw);
+  background: var(--paper); color: var(--ink); border-right: 1px solid var(--rline); box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px);
+}
+.drawer.right { left: auto; right: 0; width: min(420px, 94vw); border-right: 0; border-left: 1px solid var(--rline); padding-left: 0; padding-right: env(safe-area-inset-right, 0px); }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 10px 12px 20px; border-bottom: 1px solid var(--rline); }
+.drawer-head h2 { margin: 0; font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); font-weight: 600; }
+.drawer-book { padding: 18px 20px 6px; display: flex; gap: 14px; align-items: flex-start; }
+.drawer-book img { width: 54px; border-radius: 2px 5px 5px 2px; box-shadow: var(--shadow); flex: none; }
+.drawer-book b { font-family: var(--font-display); font-weight: 500; font-size: 1.1rem; line-height: 1.25; display: block; }
+.drawer-book span { color: var(--ink-soft); font-size: .85rem; }
+.drawer-book p { margin: 8px 0 0; font-size: .82rem; line-height: 1.5; color: var(--ink-soft); display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+#tocList { list-style: none; margin: 0; padding: 10px 8px 24px; overflow-y: auto; flex: 1; }
+#tocList button { display: block; width: 100%; text-align: left; border: 0; background: none; color: var(--ink); padding: 9px 12px; border-radius: 8px; line-height: 1.35; font-size: .92rem; }
+#tocList button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+#tocList button.current { color: var(--rlink); font-weight: 600; background: color-mix(in srgb, var(--rlink) 10%, transparent); }
+#tocList .d1 button { padding-left: 26px; font-size: .88rem; }
+#tocList .d2 button { padding-left: 40px; font-size: .85rem; color: var(--ink-soft); }
+
+.popover {
+  position: absolute; top: calc(100% + 6px); right: max(10px, env(safe-area-inset-right, 0px)); z-index: 12; width: min(340px, calc(100vw - 20px));
+  max-height: calc(100vh - 90px); overflow-y: auto;
+  background: var(--paper); color: var(--ink); border: 1px solid var(--rline); border-radius: 14px; box-shadow: var(--shadow);
+  padding: 16px; display: grid; gap: 16px;
+}
+.pop-group { font-size: .7rem; text-transform: uppercase; letter-spacing: .14em; color: var(--rlink); font-weight: 700; border-top: 1px solid var(--rline); padding-top: 14px; margin-top: 2px; }
+.setting { display: grid; gap: 7px; }
+.setting > span { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); font-weight: 600; }
+.seg { display: flex; border: 1px solid var(--rline); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg button { flex: 1; min-width: 0; border: 0; background: none; color: var(--ink-soft); border-radius: 7px; padding: 7px 4px; font-size: .84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--rlink) 16%, transparent); color: var(--ink); font-weight: 600; }
+.seg button:hover { color: var(--ink); }
+.swatch { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--rline); vertical-align: -1px; margin-right: 5px; }
+.stepper { display: flex; align-items: center; border: 1px solid var(--rline); border-radius: 10px; padding: 3px; }
+.stepper button { border: 0; background: none; color: var(--ink); border-radius: 7px; width: 44px; height: 34px; font-family: var(--font-display); }
+.stepper button:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.stepper output { flex: 1; text-align: center; font-variant-numeric: tabular-nums; font-size: .9rem; }
+
+/* Word card */
+.wordcard {
+  position: fixed; z-index: 15; left: 12px; top: 12px; width: min(372px, calc(100vw - 24px)); max-height: min(72vh, 580px); overflow-y: auto;
+  background: var(--paper); color: var(--ink); border: 1px solid var(--rline); border-radius: 14px; box-shadow: var(--shadow);
+  padding: 14px 16px 14px; display: grid; gap: 11px; font-family: var(--font-ui);
+}
+.wordcard.sheet {
+  left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 68vh; border-radius: 16px 16px 0 0; border-bottom: 0;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wc-head { display: flex; align-items: flex-start; gap: 4px; }
+.wc-title { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.wc-word { font-family: var(--font-display); font-size: 1.55rem; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
+.wc-ipa { color: var(--ink-soft); font-size: .92rem; font-family: "Segoe UI", "Lucida Sans Unicode", "DejaVu Sans", system-ui, sans-serif; }
+.wc-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .82rem; color: var(--ink-soft); }
+.chip { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: .72rem; font-weight: 600; letter-spacing: .03em; border: 1px solid var(--rline); color: var(--ink-soft); white-space: nowrap; }
+.chip.cefr { color: var(--rlink); border-color: color-mix(in srgb, var(--rlink) 45%, transparent); }
+.wc-phrase { font-size: .82rem; color: var(--ink-soft); }
+.wc-phrase b { color: var(--rlink); font-size: .98rem; font-family: var(--font-display); }
+.wc-tr { font-size: 1.18rem; font-weight: 600; line-height: 1.35; }
+.wc-other { font-size: .85rem; color: var(--ink-soft); line-height: 1.45; }
+.wc-def { font-family: var(--font-read); font-style: italic; line-height: 1.45; color: var(--ink-soft); }
+.wc-ex { font-family: var(--font-read); line-height: 1.45; font-size: .95rem; border-top: 1px dashed var(--rline); padding-top: 9px; }
+.wc-ex small { display: block; color: var(--ink-soft); font-family: var(--font-ui); font-size: .83rem; margin-top: 3px; }
+.wc-sentence { margin: 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--rline); font-family: var(--font-read); font-size: .93rem; line-height: 1.5; color: var(--ink-soft); }
+.wc-sentence mark, .fc-sent mark, .nb-sent mark { background: var(--sel); color: var(--ink); border-radius: 3px; padding: 0 2px; }
+.wc-trans { background: color-mix(in srgb, var(--rlink) 8%, transparent); border-radius: 10px; padding: 10px 12px; line-height: 1.5; font-size: .92rem; white-space: pre-wrap; }
+.wc-foot { display: flex; flex-wrap: wrap; gap: 8px; }
+.wc-links { font-size: .78rem; color: var(--ink-soft); }
+.wc-links a { color: var(--rlink); }
+.wc-manual { display: grid; gap: 6px; }
+.wc-manual label { font-size: .8rem; color: var(--ink-soft); }
+.field { width: 100%; border: 1px solid var(--rline); background: transparent; color: var(--ink); border-radius: 9px; padding: 9px 11px; font: inherit; }
+.field:focus { outline: 2px solid var(--rlink); outline-offset: 0; border-color: transparent; }
+.thinking { color: var(--ink-soft); font-size: .9rem; display: flex; align-items: center; gap: 10px; }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--rlink); animation: pulse 1s ease-in-out infinite; flex: none; }
+@keyframes pulse { 50% { opacity: .25; transform: scale(.7); } }
+.err-text { color: var(--bad); font-size: .88rem; line-height: 1.45; }
+.pickbar {
+  position: fixed; z-index: 14; left: 50%; transform: translateX(-50%); bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+  width: min(640px, calc(100vw - 24px)); background: var(--paper); color: var(--ink); border: 1px solid var(--rline);
+  border-radius: 14px; box-shadow: var(--shadow); padding: 10px 12px 10px 16px; display: grid; gap: 8px; font-family: var(--font-ui);
+}
+.pick-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.pick-count { font-weight: 600; font-size: .92rem; }
+.pick-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.pick-words { display: flex; flex-wrap: wrap; gap: 6px; max-height: 84px; overflow-y: auto; }
+.pick-chip { border: 1px solid var(--rline); background: color-mix(in srgb, var(--rlink) 10%, transparent); color: var(--ink); border-radius: 999px; padding: 3px 10px; font-size: .82rem; }
+.pick-chip:hover { border-color: var(--bad); }
+.toc-filter { margin: 4px 16px 0; }
+#tocList li { display: flex; align-items: center; gap: 2px; }
+#tocList li button.toc-go { flex: 1; min-width: 0; }
+#tocList .toc-check { width: 32px; height: 32px; flex: none; border-radius: 8px; display: grid; place-items: center; padding: 0; color: var(--rline); font-size: 1rem; }
+#tocList .toc-check:hover { color: var(--rlink); background: color-mix(in srgb, var(--ink) 6%, transparent); }
+#tocList li.read .toc-check { color: var(--good); }
+#tocList li.read .toc-go { color: var(--ink-soft); }
+.shelf-group + .shelf-group { margin-top: 34px; }
+.shelf-group h3 { margin: 0 0 4px; font-size: .74rem; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); font-weight: 700; display: flex; gap: 8px; align-items: baseline; }
+.shelf-group h3 span { color: var(--muted); font-weight: 500; letter-spacing: 0; text-transform: none; font-size: .8rem; }
+.book-actions { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.book-done { position: absolute; right: 8px; top: 8px; z-index: 1; background: var(--good); color: var(--surface); border-radius: 999px; font-size: .7rem; font-weight: 700; padding: 3px 8px; }
+.dict-sec { display: grid; gap: 6px; justify-items: start; padding-top: 8px; border-top: 1px dashed var(--rline); }
+.dict-sec:first-child { border-top: 0; padding-top: 0; }
+.dict-tr, .dict-k { margin: 0; padding-left: 18px; display: grid; gap: 3px; line-height: 1.4; }
+.dict-tr b { font-weight: 600; }
+.dict-sense { color: var(--ink-soft); font-size: .84rem; }
+.dict-k { font-size: .9rem; }
+.dict-phrase { background: color-mix(in srgb, var(--rlink) 8%, transparent); border-radius: 10px; padding: 9px 12px; display: grid; gap: 4px; }
+.dict-phrase-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.dict-phrase-top b { color: var(--rlink); font-family: var(--font-display); }
+.dict-also summary { cursor: pointer; font-size: .85rem; color: var(--ink-soft); }
+.dict-also[open] { display: grid; gap: 8px; }
+
+/* Notebook */
+.nb-tabs { margin: 14px 16px 4px; }
+.nb-pane { flex: 1; overflow-y: auto; padding: 10px 16px 20px; min-height: 0; }
+.nb-tools { display: flex; gap: 8px; margin-bottom: 6px; }
+.nb-list { list-style: none; margin: 0; padding: 0; }
+.nb-item { padding: 13px 0; border-bottom: 1px solid var(--rline); display: grid; gap: 5px; }
+.nb-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.nb-top b { font-family: var(--font-display); font-size: 1.12rem; font-weight: 600; }
+.nb-top .wc-ipa { font-size: .82rem; }
+.nb-say { border: 0; background: none; color: var(--ink-soft); padding: 2px; border-radius: 6px; display: inline-grid; place-items: center; align-self: center; }
+.nb-say:hover { color: var(--rlink); }
+.nb-say svg { width: 16px; height: 16px; }
+.nb-tr { font-weight: 600; line-height: 1.35; }
+.nb-sent { font-family: var(--font-read); font-size: .88rem; color: var(--ink-soft); line-height: 1.45; }
+.nb-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: .75rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.boxes { display: inline-flex; gap: 2px; }
+.boxes i { width: 7px; height: 7px; border-radius: 2px; background: var(--rline); }
+.boxes i.on { background: var(--rlink); }
+.link-btn { border: 0; background: none; color: var(--ink-soft); padding: 0; font-size: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.link-btn:hover, .link-btn.confirm { color: var(--bad); }
+.link-btn.connect, .link-btn.connect:hover { color: var(--rlink); }
+.nb-empty { color: var(--ink-soft); line-height: 1.55; padding: 18px 2px; }
+.nb-foot { padding: 10px 18px 14px; border-top: 1px solid var(--rline); font-size: .76rem; color: var(--ink-soft); line-height: 1.45; }
+
+.fc { display: grid; gap: 16px; padding-top: 8px; }
+.fc-top { display: flex; justify-content: space-between; align-items: center; font-size: .8rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.fc-bar { height: 3px; background: var(--rline); border-radius: 3px; overflow: hidden; }
+.fc-bar i { display: block; height: 100%; background: var(--rlink); }
+.fc-card { border: 1px solid var(--rline); border-radius: 14px; padding: 22px 18px; display: grid; gap: 12px; justify-items: center; text-align: center; }
+.fc-word { font-family: var(--font-display); font-size: 2rem; font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
+.fc-sent { font-family: var(--font-read); color: var(--ink-soft); line-height: 1.5; }
+.fc-back { display: grid; gap: 8px; border-top: 1px dashed var(--rline); padding-top: 12px; width: 100%; }
+.fc-back .wc-tr { font-size: 1.25rem; }
+.fc-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fc-grade button { border-radius: 12px; padding: 12px 10px; font-weight: 600; border: 1px solid var(--rline); background: none; color: var(--ink); display: grid; gap: 2px; }
+.fc-grade button small { font-weight: 400; color: var(--ink-soft); font-size: .75rem; }
+.fc-grade .no:hover { border-color: var(--bad); color: var(--bad); }
+.fc-grade .yes:hover { border-color: var(--good); color: var(--good); }
+.kbd-hint { font-size: .75rem; color: var(--ink-soft); text-align: center; }
+
+.app-foot { display: flex; gap: 6px; align-items: baseline; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); padding-top: 14px; font-variant-numeric: tabular-nums; }
+.app-foot .link-btn { color: var(--muted); text-decoration: none; }
+.app-foot .link-btn:hover { color: var(--accent); }
+.dev-info { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; font-size: .85rem; }
+.dev-info dt { color: var(--muted); }
+.dev-info dd { margin: 0; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: .8rem; }
+.ai-entry { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.ai-chip { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.ai-chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.ai-chip.on::before { background: var(--good); }
+.brand { flex-wrap: wrap; }
+.modal-wrap { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: grid; place-items: center; padding: 16px; }
+.modal {
+  width: min(500px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--surface); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 22px; display: grid; gap: 12px;
+  --paper: var(--surface); --ink: var(--fg); --ink-soft: var(--muted); --rline: var(--line); --rlink: var(--accent);
+}
+.modal h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 1.35rem; }
+.modal p { margin: 0; line-height: 1.5; }
+.modal a { color: var(--accent); }
+.modal-label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+.modal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.toast {
+  position: fixed; z-index: 40; left: 50%; transform: translateX(-50%); bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 999px; font-size: .88rem; box-shadow: var(--shadow); max-width: calc(100vw - 32px);
+}
+.drop-overlay { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: var(--scrim); pointer-events: none; }
+.drop-overlay div { background: var(--surface); color: var(--fg); border: 2px dashed var(--accent); border-radius: 16px; padding: 28px 36px; font-family: var(--font-display); font-size: 1.3rem; }
+.busy { position: fixed; inset: 0; z-index: 25; display: grid; place-items: center; background: var(--scrim); }
+.busy div { background: var(--surface); color: var(--fg); padding: 16px 22px; border-radius: 12px; box-shadow: var(--shadow); }
+
+@media (max-width: 640px) {
+  .lib-inner { padding-block: 28px 48px; gap: 26px; }
+  .brand h1 { font-size: 2.1rem; }
+  .shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 16px; }
+  .icon-btn .lbl { display: none; }
+  .icon-btn { padding: 0 8px; }
+  #page { padding-block: 26px 20px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<input type="file" id="fileInput" accept=".epub,application/epub+zip" hidden>
+
+<!-- Library -->
+<main id="library">
+  <div class="lib-inner gutter">
+    <header class="brand">
+      <div class="ribbon" aria-hidden="true"></div>
+      <div class="brand-text">
+        <h1>Ayraç</h1>
+        <p>İngilizce kitap oku. Bilmediğin kelimeye dokun, anlamını gör, defterine ekle, sonra tekrar et.</p>
+      </div>
+      <div class="ai-entry desktop-only" hidden>
+        <span class="ai-chip" id="aiChip">Claude</span>
+        <button class="btn-ghost" id="aiOpen" type="button">Claude ayarları</button>
+      </div>
+    </header>
+
+    <section class="drop" id="dropZone" aria-labelledby="dropTitle">
+      <h2 id="dropTitle">Bir EPUB dosyası aç</h2>
+      <p id="dropDesc">Dosyayı buraya sürükle ya da bilgisayarından seç. Kitap yalnızca bu tarayıcıda açılır, hiçbir yere yüklenmez.</p>
+      <button class="btn-primary" id="pickBtn" type="button">EPUB dosyası seç</button>
+      <div class="facts"><span>Kelimeye dokun, anlamını gör</span><span>Kelime defteri ve aralıklı tekrar</span><span>Sesli okuma</span><span>Bölüm sonu anlama testi</span></div>
+    </section>
+
+    <section class="vocab-strip" id="vocabStrip" aria-label="Kelime defteri" hidden>
+      <div class="vs-stats">
+        <div class="vs-stat"><b id="vsCount">0</b><span>kelime defterde</span></div>
+        <div class="vs-stat"><b id="vsDue">0</b><span>tekrar bekliyor</span></div>
+        <div class="vs-stat"><b id="vsLearned">0</b><span>iyi biliniyor</span></div>
+      </div>
+      <div class="vs-actions">
+        <button class="btn-primary" id="vsReview" type="button">Tekrar et</button>
+        <button class="btn-ghost" id="vsOpen" type="button">Defteri aç</button>
+      </div>
+    </section>
+
+    <div class="error" id="errorBox" role="alert" hidden></div>
+
+    <section aria-labelledby="shelfTitle">
+      <div class="shelf-head"><h2 id="shelfTitle">Kitaplığım</h2><span id="shelfCount"></span></div>
+      <p class="shelf-empty" id="shelfLoading">Kitaplığın yükleniyor…</p>
+      <p class="shelf-empty" id="shelfEmpty" hidden>Açtığın kitaplar burada durur. Bir kapağa dokunduğunda kaldığın yerden devam edersin.</p>
+      <div id="shelf" style="margin-top:22px"></div>
+    </section>
+
+    <footer class="app-foot">
+      <button class="link-btn" id="verBtn" type="button" title="Sürüm bilgisi">Ayraç <span id="appVer"></span></button>
+      <span id="devBadge" hidden>· geliştirici modu</span>
+    </footer>
+  </div>
+</main>
+
+<!-- Reader -->
+<div id="reader" hidden>
+  <header class="bar topbar gutter">
+    <button class="icon-btn" id="backBtn" type="button" title="Kitaplığa dön">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      <span class="lbl">Kitaplık</span>
+    </button>
+    <button class="icon-btn" id="tocBtn" type="button" aria-expanded="false" aria-controls="tocDrawer" title="İçindekiler">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span class="lbl">İçindekiler</span>
+    </button>
+    <div class="titles"><b id="bookTitle"></b><small id="bookAuthor"></small></div>
+    <button class="icon-btn" id="nbBtn" type="button" aria-expanded="false" aria-controls="notebook" title="Kelime defteri">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z"/><path d="M5 17a3 3 0 013-3h11"/><path d="M9 8h6"/></svg>
+      <span class="lbl">Defter</span>
+      <span class="badge" id="dueBadge" hidden></span>
+    </button>
+    <button class="icon-btn" id="prefsBtn" type="button" aria-expanded="false" aria-controls="prefs" title="Görünüm ve öğrenme ayarları">
+      <span style="font-family:var(--font-display);font-size:1.05rem" aria-hidden="true">Aa</span>
+      <span class="lbl">Ayarlar</span>
+    </button>
+
+    <div class="popover" id="prefs" hidden role="dialog" aria-label="Ayarlar">
+      <div class="setting"><span>Tema</span>
+        <div class="seg" data-pref="theme">
+          <button type="button" data-v="auto">Sistem</button>
+          <button type="button" data-v="light"><i class="swatch" style="background:#fcfcfa"></i>Açık</button>
+          <button type="button" data-v="sepia"><i class="swatch" style="background:#f1e7d3"></i>Sepya</button>
+          <button type="button" data-v="night"><i class="swatch" style="background:#0f1211"></i>Gece</button>
+        </div>
+      </div>
+      <div class="setting"><span>Yazı tipi</span>
+        <div class="seg" data-pref="font">
+          <button type="button" data-v="literata" style="font-family:var(--font-display)">Literata</button>
+          <button type="button" data-v="figtree" style="font-family:Figtree,sans-serif">Figtree</button>
+          <button type="button" data-v="atkinson" style="font-family:'Atkinson Hyperlegible',sans-serif">Okunaklı</button>
+          <button type="button" data-v="book">Kitabın</button>
+        </div>
+      </div>
+      <div class="setting"><span>Yazı boyutu</span>
+        <div class="stepper">
+          <button type="button" id="fsDown" aria-label="Yazıyı küçült" style="font-size:.85rem">A</button>
+          <output id="fsOut">19 px</output>
+          <button type="button" id="fsUp" aria-label="Yazıyı büyüt" style="font-size:1.25rem">A</button>
+        </div>
+      </div>
+      <div class="setting"><span>Satır aralığı</span>
+        <div class="seg" data-pref="lh">
+          <button type="button" data-v="1.45">Sıkı</button>
+          <button type="button" data-v="1.65">Normal</button>
+          <button type="button" data-v="1.9">Ferah</button>
+        </div>
+      </div>
+      <div class="setting"><span>Sütun genişliği</span>
+        <div class="seg" data-pref="width">
+          <button type="button" data-v="32em">Dar</button>
+          <button type="button" data-v="38em">Orta</button>
+          <button type="button" data-v="46em">Geniş</button>
+        </div>
+      </div>
+
+      <div class="pop-group">İngilizce çalışma</div>
+      <div class="setting"><span>Seviyem (açıklamalar buna göre)</span>
+        <div class="seg" data-pref="level">
+          <button type="button" data-v="A2">A2</button>
+          <button type="button" data-v="B1">B1</button>
+          <button type="button" data-v="B2">B2</button>
+          <button type="button" data-v="C1">C1</button>
+        </div>
+      </div>
+      <div class="setting"><span>Telaffuz</span>
+        <div class="seg" data-pref="accent">
+          <button type="button" data-v="en-US">Amerikan</button>
+          <button type="button" data-v="en-GB">İngiliz</button>
+        </div>
+      </div>
+      <div class="setting"><span>Sesli okuma hızı</span>
+        <div class="seg" data-pref="rate">
+          <button type="button" data-v="0.75">Yavaş</button>
+          <button type="button" data-v="0.9">Rahat</button>
+          <button type="button" data-v="1">Normal</button>
+          <button type="button" data-v="1.15">Hızlı</button>
+        </div>
+      </div>
+      <div class="setting"><span>Defterdeki kelimeler metinde</span>
+        <div class="seg" data-pref="mark">
+          <button type="button" data-v="on">Altı çizili</button>
+          <button type="button" data-v="off">Gizli</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div id="scroller" tabindex="-1">
+    <article id="page" class="gutter">
+      <p class="tap-hint" id="tapHint" hidden>
+        <span>İpucu: Bilmediğin bir kelimeye dokun, anlamı açılsın. Kelimeyi deftere ekleyip sonra tekrar edebilirsin.</span>
+        <button type="button" id="tapHintClose">Tamam</button>
+      </p>
+      <div id="bookHost"></div>
+      <div class="chapter-end" id="chapterEnd" hidden></div>
+    </article>
+  </div>
+
+  <footer class="bar bottombar gutter">
+    <div class="progress" aria-hidden="true"><i id="progressFill"></i></div>
+    <button class="icon-btn" id="prevBtn" type="button" title="Önceki bölüm (Alt+←)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      <span class="lbl">Önceki</span>
+    </button>
+    <button class="icon-btn" id="listenBtn" type="button" aria-pressed="false" title="Sesli oku (görünen yerden başlar)">
+      <svg id="listenIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg>
+      <span class="lbl" id="listenLbl">Dinle</span>
+    </button>
+    <button class="icon-btn" id="pickModeBtn" type="button" aria-pressed="false" title="Birden çok kelime seçip deftere ekle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="6" height="6" rx="1.5"/><path d="M4.5 7l1.2 1.2L8 6"/><rect x="3" y="14" width="6" height="6" rx="1.5"/><path d="M13 7h8M13 17h8"/></svg>
+      <span class="lbl">Kelime seç</span>
+    </button>
+    <div class="where" id="where" aria-live="polite"></div>
+    <button class="icon-btn" id="nextBtn" type="button" title="Sonraki bölüm (Alt+→)">
+      <span class="lbl">Sonraki</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </footer>
+
+  <aside class="drawer" id="tocDrawer" hidden aria-label="İçindekiler">
+    <div class="drawer-head">
+      <h2>İçindekiler</h2>
+      <button class="icon-btn" id="tocClose" type="button" aria-label="Kapat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="drawer-book" id="drawerBook"></div>
+    <div class="seg toc-filter" id="tocFilter">
+      <button type="button" data-f="all" aria-pressed="true">Tümü</button>
+      <button type="button" data-f="unread" aria-pressed="false">Okunmamış <span id="tocUnreadN"></span></button>
+      <button type="button" data-f="read" aria-pressed="false">Okunan <span id="tocReadN"></span></button>
+    </div>
+    <ol id="tocList"></ol>
+  </aside>
+
+  <div class="pickbar" id="pickBar" hidden role="region" aria-label="Kelime seçimi">
+    <div class="pick-top">
+      <span class="pick-count" id="pickCount">Eklemek istediğin kelimelere dokun</span>
+      <div class="pick-actions">
+        <button class="btn solid" id="pickAdd" type="button" disabled>Deftere ekle</button>
+        <button class="btn" id="pickClear" type="button">Temizle</button>
+        <button class="btn" id="pickDone" type="button">Bitti</button>
+      </div>
+    </div>
+    <div class="pick-words" id="pickWords" hidden></div>
+  </div>
+
+  <div class="wordcard" id="wordCard" hidden role="dialog" aria-label="Kelime açıklaması">
+    <div class="wc-head">
+      <div class="wc-title"><span class="wc-word" id="wcWord"></span><span class="wc-ipa" id="wcIpa"></span></div>
+      <button class="icon-btn" id="wcSpeak" type="button" aria-label="Kelimeyi seslendir" title="Dinle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>
+      </button>
+      <button class="icon-btn" id="wcClose" type="button" aria-label="Kapat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="wc-tags" id="wcTags"></div>
+    <div id="wcBody" style="display:grid;gap:8px"></div>
+    <blockquote class="wc-sentence" id="wcSentence"></blockquote>
+    <div class="wc-trans" id="wcTrans" hidden aria-live="polite"></div>
+    <div class="wc-foot">
+      <button class="btn solid" id="wcSave" type="button">Deftere ekle</button>
+      <button class="btn" id="wcCamBtn" type="button" hidden>Cambridge’de aç</button>
+      <button class="btn" id="wcTranslate" type="button">Cümleyi çevir</button>
+      <button class="btn" id="wcAskAi" type="button" hidden>Bu cümlede ne demek?</button>
+      <button class="btn" id="wcSaySentence" type="button">Cümleyi dinle</button>
+    </div>
+    <div class="wc-links"><span id="wcSource" hidden>Sözlük: Wiktionary (CC BY-SA 4.0) · </span>Daha fazla: <a id="wcCam" target="_blank" rel="noopener noreferrer">Cambridge</a> · <a id="wcTur" target="_blank" rel="noopener noreferrer">Tureng</a> · <a id="wcYg" target="_blank" rel="noopener noreferrer">YouGlish</a></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="drawer right" id="notebook" hidden aria-label="Kelime defteri">
+  <div class="drawer-head">
+    <h2>Kelime defteri</h2>
+    <button class="icon-btn" id="nbClose" type="button" aria-label="Kapat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="seg nb-tabs" id="nbTabs">
+    <button type="button" data-tab="list" aria-pressed="true">Kelimeler <span id="nbCountTab"></span></button>
+    <button type="button" data-tab="review" aria-pressed="false">Tekrar <span id="nbDueTab"></span></button>
+  </div>
+  <div class="nb-pane" id="nbList">
+    <div class="nb-tools"><input class="field" id="nbSearch" type="search" placeholder="Defterde ara (İngilizce ya da Türkçe)" autocomplete="off"></div>
+    <ul class="nb-list" id="nbItems"></ul>
+  </div>
+  <div class="nb-pane" id="nbReview" hidden></div>
+  <div class="nb-foot" id="nbFoot"></div>
+</aside>
+
+<div class="modal-wrap" id="aiSetup" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="aiSetupTitle">
+    <h2 id="aiSetupTitle">Claude bağlantısı</h2>
+    <p>Kelime anlamları, cümle çevirisi ve bölüm testleri Claude ile çalışır. Masaüstü uygulamasında bunun için bir Anthropic API anahtarı gerekir. Anahtarı <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer">console.anthropic.com</a> adresinden oluşturabilirsin. API kullanımı claude.ai aboneliğinden ayrı ücretlendirilir.</p>
+    <p class="note">Anahtar Windows Kimlik Bilgileri Yöneticisi’nde saklanır, yalnızca Anthropic’e gönderilir. Anahtar olmadan da okuyabilir, kelimeleri dinleyebilir, defter tutup tekrar yapabilirsin.</p>
+    <label class="modal-label" for="aiKey">API anahtarı</label>
+    <input class="field" id="aiKey" type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false">
+    <div class="setting"><span>Model</span>
+      <div class="seg" id="aiModel">
+        <button type="button" data-v="opus">Opus 5.5 · en iyi açıklama</button>
+        <button type="button" data-v="haiku">Haiku 5.5 · hızlı, ucuz</button>
+      </div>
+    </div>
+    <p class="note" id="aiMsg" aria-live="polite"></p>
+    <div class="modal-actions">
+      <button class="btn solid" id="aiSave" type="button">Kaydet ve dene</button>
+      <button class="btn" id="aiRemove" type="button">Anahtarı sil</button>
+      <button class="btn" id="aiCloseBtn" type="button">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="devPanel" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="devTitle">
+    <h2 id="devTitle">Geliştirici</h2>
+    <dl class="dev-info" id="devInfo"></dl>
+    <p class="note" id="devNote"></p>
+    <div class="modal-actions">
+      <button class="btn" id="devLog" type="button">Günlüğü aç</button>
+      <button class="btn" id="devData" type="button">Veri klasörünü aç</button>
+      <button class="btn" id="devReload" type="button">Kitaplığı yenile</button>
+      <button class="btn" id="devToggle" type="button">Geliştirici modunu kapat</button>
+      <button class="btn" id="devClose" type="button">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<div class="drop-overlay" id="dropOverlay" hidden><div>Bırak, kitabı açalım</div></div>
+<div class="busy" id="busy" hidden><div>Kitap açılıyor…</div></div>
+
+<script>
+(async () => {
+'use strict';
+const DESKTOP = !!window.AYRAC_DESKTOP;
+const $ = (s) => document.querySelector(s);
+const XLINK = 'http://www.w3.org/1999/xlink';
+const DAY = 86400000;
+const SPEAK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>';
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+/* ================= ZIP (no library: central directory + DecompressionStream) ================= */
+async function openZip(buf) {
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  let eocd = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('Bu dosya bir EPUB değil ya da bozuk. EPUB dosyaları ZIP arşivi olmalı.');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const entries = new Map(), lower = new Map(), td = new TextDecoder();
+  for (let n = 0; n < count && p + 46 <= buf.byteLength; n++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), usize = dv.getUint32(p + 24, true);
+    const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    const off = dv.getUint32(p + 42, true);
+    const name = td.decode(u8.subarray(p + 46, p + 46 + nlen));
+    if (!name.endsWith('/')) { entries.set(name, { method, csize, usize, off }); lower.set(name.toLowerCase(), name); }
+    p += 46 + nlen + xlen + clen;
+  }
+  const cache = new Map();
+  const find = (name) => entries.has(name) ? name : (lower.get(String(name).toLowerCase()) || null);
+  async function bytes(name) {
+    const key = find(name);
+    if (!key) return null;
+    if (cache.has(key)) return cache.get(key);
+    const e = entries.get(key);
+    const start = e.off + 30 + dv.getUint16(e.off + 26, true) + dv.getUint16(e.off + 28, true);
+    const raw = u8.subarray(start, start + e.csize);
+    let out;
+    if (e.method === 0) out = raw;
+    else if (e.method === 8) {
+      const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      out = new Uint8Array(await new Response(stream).arrayBuffer());
+    } else throw new Error('Kitapta desteklenmeyen bir sıkıştırma yöntemi var (' + e.method + ').');
+    cache.set(key, out);
+    return out;
+  }
+  async function text(name) {
+    const b = await bytes(name);
+    if (b == null) return null;
+    if (b[0] === 0xff && b[1] === 0xfe) return new TextDecoder('utf-16le').decode(b);
+    if (b[0] === 0xfe && b[1] === 0xff) return new TextDecoder('utf-16be').decode(b);
+    return new TextDecoder('utf-8').decode(b);
+  }
+  return { entries, find, bytes, text, size: (n) => { const k = find(n); return k ? entries.get(k).usize : 0; } };
+}
+
+/* ================= Paths & parsing ================= */
+const dirOf = (p) => p.slice(0, p.lastIndexOf('/') + 1);
+const isExternal = (h) => /^[a-z][a-z0-9+.-]*:/i.test(h);
+function resolvePath(base, href) {
+  let h = String(href).split('#')[0].split('?')[0];
+  try { h = decodeURIComponent(h); } catch (e) {}
+  if (!h) return base;
+  const stack = h.startsWith('/') ? [] : dirOf(base).split('/').filter(Boolean);
+  for (const seg of h.split('/')) {
+    if (!seg || seg === '.') continue;
+    if (seg === '..') stack.pop(); else stack.push(seg);
+  }
+  return stack.join('/');
+}
+const fragOf = (href) => { const i = String(href).indexOf('#'); if (i < 0) return ''; try { return decodeURIComponent(href.slice(i + 1)); } catch (e) { return href.slice(i + 1); } };
+const MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif',
+  css: 'text/css', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2', mp3: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'video/mp4', ogg: 'audio/ogg', webm: 'video/webm' };
+const mimeOf = (p) => MIME[(p.split('.').pop() || '').toLowerCase()] || 'application/octet-stream';
+
+function parseXml(src) {
+  let d = new DOMParser().parseFromString(src, 'application/xml');
+  if (d.getElementsByTagName('parsererror').length) d = new DOMParser().parseFromString(src, 'text/html');
+  return d;
+}
+function parseDoc(src) {
+  let d = new DOMParser().parseFromString(src, 'application/xhtml+xml');
+  if (d.getElementsByTagName('parsererror').length) d = new DOMParser().parseFromString(src, 'text/html');
+  return d;
+}
+const byTag = (root, tag) => Array.from(root.getElementsByTagNameNS('*', tag));
+const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
+
+async function parseBook(zip) {
+  let opfPath = null;
+  const container = await zip.text('META-INF/container.xml');
+  if (container) {
+    const rf = byTag(parseXml(container), 'rootfile')[0];
+    if (rf) opfPath = zip.find(rf.getAttribute('full-path'));
+  }
+  if (!opfPath) opfPath = [...zip.entries.keys()].find((n) => /\.opf$/i.test(n));
+  if (!opfPath) throw new Error('Kitabın içerik listesi (OPF dosyası) bulunamadı. Dosya bozuk olabilir.');
+  const opf = parseXml(await zip.text(opfPath));
+  const meta = (tag) => clean((byTag(opf, tag)[0] || {}).textContent);
+
+  const manifest = new Map();
+  for (const it of byTag(opf, 'item')) {
+    const href = it.getAttribute('href') || '';
+    manifest.set(it.getAttribute('id'), {
+      path: zip.find(resolvePath(opfPath, href)) || resolvePath(opfPath, href),
+      type: it.getAttribute('media-type') || '',
+      props: (it.getAttribute('properties') || '').split(/\s+/),
+    });
+  }
+  const spineEl = byTag(opf, 'spine')[0];
+  const spine = [];
+  for (const ir of byTag(opf, 'itemref')) {
+    const m = manifest.get(ir.getAttribute('idref'));
+    if (m && /html|xml/i.test(m.type) && zip.find(m.path)) spine.push({ path: m.path, linear: ir.getAttribute('linear') !== 'no', size: Math.max(1, zip.size(m.path)) });
+  }
+  if (!spine.length) throw new Error('Kitapta okunacak bölüm bulunamadı.');
+
+  let cover = null;
+  for (const m of manifest.values()) if (m.props.includes('cover-image')) cover = m.path;
+  if (!cover) {
+    const mc = byTag(opf, 'meta').find((x) => x.getAttribute('name') === 'cover');
+    const m = mc && manifest.get(mc.getAttribute('content'));
+    if (m && m.type.startsWith('image')) cover = m.path;
+  }
+  if (cover && !zip.find(cover)) cover = null;
+
+  let toc = [];
+  const nav = [...manifest.values()].find((m) => m.props.includes('nav'));
+  if (nav) toc = parseNav(await zip.text(nav.path), nav.path);
+  if (!toc.length) {
+    const ncx = manifest.get(spineEl && spineEl.getAttribute('toc')) || [...manifest.values()].find((m) => /dtbncx/.test(m.type));
+    if (ncx && zip.find(ncx.path)) toc = parseNcx(await zip.text(ncx.path), ncx.path);
+  }
+
+  let total = 0;
+  for (const s of spine) { s.start = total; total += s.size; }
+  return {
+    opfPath, spine, toc, cover, total,
+    title: meta('title') || 'Adsız kitap',
+    author: byTag(opf, 'creator').map((c) => clean(c.textContent)).filter(Boolean).join(', '),
+    identifier: meta('identifier'),
+    description: clean(meta('description').replace(/<[^>]+>/g, ' ')),
+  };
+}
+
+function parseNav(src, navPath) {
+  if (!src) return [];
+  const d = parseDoc(src);
+  const navs = byTag(d, 'nav');
+  const nav = navs.find((n) => /\btoc\b/.test(n.getAttributeNS('http://www.idpf.org/2007/ops', 'type') || n.getAttribute('epub:type') || '')) || navs[0];
+  if (!nav) return [];
+  const out = [];
+  const walk = (ol, depth) => {
+    for (const li of Array.from(ol.children).filter((c) => c.localName === 'li')) {
+      const a = Array.from(li.children).find((c) => c.localName === 'a' || c.localName === 'span');
+      const href = a && a.getAttribute('href');
+      if (a && clean(a.textContent)) out.push({ label: clean(a.textContent), path: href ? resolvePath(navPath, href) : null, frag: href ? fragOf(href) : '', depth });
+      const sub = Array.from(li.children).find((c) => c.localName === 'ol' || c.localName === 'ul');
+      if (sub) walk(sub, depth + 1);
+    }
+  };
+  const top = Array.from(nav.children).find((c) => c.localName === 'ol' || c.localName === 'ul');
+  if (top) walk(top, 0);
+  return out;
+}
+function parseNcx(src, ncxPath) {
+  if (!src) return [];
+  const d = parseXml(src);
+  const out = [];
+  const walk = (parent, depth) => {
+    for (const np of Array.from(parent.children).filter((c) => c.localName === 'navPoint')) {
+      const label = clean((byTag(np, 'text')[0] || {}).textContent);
+      const content = Array.from(np.children).find((c) => c.localName === 'content');
+      const src2 = content && content.getAttribute('src');
+      if (label) out.push({ label, path: src2 ? resolvePath(ncxPath, src2) : null, frag: src2 ? fragOf(src2) : '', depth });
+      walk(np, depth + 1);
+    }
+  };
+  const map = byTag(d, 'navMap')[0];
+  if (map) walk(map, 0);
+  return out;
+}
+
+/* ================= Desktop host (pywebview) ================= */
+// In the desktop app, settings, vocabulary and books live in files under %APPDATA%\Ayrac via the Python bridge.
+async function desktopHost() {
+  // The bridge can come up late (e.g. right after Windows starts); poll as well as listen, for up to 30 s.
+  const ready = () => !!(window.pywebview && window.pywebview.api && window.pywebview.api.kv_all && window.pywebview.api.books_list);
+  const event = new Promise((r) => window.addEventListener('pywebviewready', r, { once: true }));
+  for (let i = 0; i < 300 && !ready(); i++) await Promise.race([event, new Promise((r) => setTimeout(r, 100))]);
+  if (!ready()) {
+    document.querySelector('#shelfLoading').textContent = 'Uygulama bilgisayardaki kitaplığına bağlanamadı. Ayraç’ı kapatıp yeniden aç; kitapların ve defterin silinmedi.';
+    throw new Error('desktop bridge unavailable');
+  }
+  const api = window.pywebview.api;
+  const kv = (await api.kv_all()) || {};
+  return { api, kv };
+}
+const T0 = performance.now();
+const APP_VERSION = window.AYRAC_VERSION || 'web';
+const host = DESKTOP ? await desktopHost() : null;
+// Developer log: in the desktop app, lines go to %APPDATA%\Ayrac\logs\ayrac.log.
+function devlog(level, msg) { if (host) { try { host.api.log(level, msg); } catch (e) {} } }
+if (host) {
+  devlog('info', 'page: bridge ready in ' + Math.round(performance.now() - T0) + ' ms, ' + Object.keys(host.kv).length + ' saved settings');
+  window.addEventListener('error', (e) => devlog('error', 'js: ' + e.message + ' @ ' + (e.filename || '').split('/').pop() + ':' + e.lineno));
+  window.addEventListener('unhandledrejection', (e) => devlog('error', 'js promise: ' + ((e.reason && (e.reason.stack || e.reason.message)) || JSON.stringify(e.reason))));
+}
+function blobToB64(blob) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+}
+function b64ToBlob(b64, type) {
+  const bin = atob(b64), u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return new Blob([u], { type: type || 'application/octet-stream' });
+}
+function dataUrlToBlob(d) { const m = /^data:([^;,]+)?(;base64)?,([\s\S]*)$/.exec(d || ''); return m ? b64ToBlob(m[3], m[1]) : null; }
+
+/* ================= Storage (browser, or desktop files) ================= */
+const store = host ? {
+  get(k, d) { return Object.prototype.hasOwnProperty.call(host.kv, k) ? host.kv[k] : d; },
+  set(k, v) { host.kv[k] = v; host.api.kv_set(k, v); },
+  del(k) { delete host.kv[k]; host.api.kv_del(k); },
+} : {
+  get(k, d) { try { const v = localStorage.getItem('ayrac:' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('ayrac:' + k, JSON.stringify(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem('ayrac:' + k); } catch (e) {} },
+};
+let dbp = null;
+function idb() {
+  if (!dbp) dbp = new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open('ayrac', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('books', { keyPath: 'id' });
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    } catch (e) { rej(e); }
+  });
+  return dbp;
+}
+async function idbRun(mode, fn) {
+  try {
+    const d = await idb();
+    return await new Promise((res, rej) => {
+      const tx = d.transaction('books', mode);
+      const req = fn(tx.objectStore('books'));
+      tx.oncomplete = () => res(req && req.result);
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error);
+    });
+  } catch (e) { return undefined; }
+}
+const idbAll = () => idbRun('readonly', (s) => s.getAll());
+const idbGet = (id) => idbRun('readonly', (s) => s.get(id));
+const idbPut = (rec) => idbRun('readwrite', (s) => s.put(rec));
+const idbDel = (id) => idbRun('readwrite', (s) => s.delete(id));
+
+const storedBooks = new Set();
+const books = host ? {
+  async all() {
+    const list = (await host.api.books_list()) || [];
+    list.forEach((m) => storedBooks.add(m.id));
+    return list.map((m) => Object.assign({}, m, { cover: m.cover ? dataUrlToBlob(m.cover) : null, file: { lazyId: m.id } }));
+  },
+  async get(id) { const m = await host.api.book_meta(id); return m ? Object.assign({}, m, { cover: null, file: { lazyId: id } }) : undefined; },
+  async put(rec) {
+    const meta = Object.assign({}, rec); delete meta.file; delete meta.cover;
+    let fileB64 = null, coverB64 = null, coverType = null;
+    if (!storedBooks.has(rec.id) && rec.file instanceof Blob) {
+      fileB64 = await blobToB64(rec.file);
+      if (rec.cover instanceof Blob) { coverB64 = await blobToB64(rec.cover); coverType = rec.cover.type; }
+    }
+    const ok = await host.api.book_put(meta, fileB64, coverB64, coverType);
+    if (ok) storedBooks.add(rec.id);
+  },
+  del(id) { storedBooks.delete(id); return host.api.book_delete(id); },
+  async file(id) { const b64 = await host.api.book_file(id); return b64 ? b64ToBlob(b64, 'application/epub+zip') : null; },
+} : { all: idbAll, get: idbGet, put: idbPut, del: idbDel, file: async () => null };
+
+/* Desktop: Claude via the Anthropic API key the user entered, shaped like the artifact `sample` capability. */
+function parseLooseJson(t) {
+  try { return JSON.parse(t); } catch (e) {}
+  const f = /```(?:json)?\s*([\s\S]*?)```/.exec(t);
+  if (f) { try { return JSON.parse(f[1]); } catch (e) {} }
+  const a = t.search(/[[{]/), b = Math.max(t.lastIndexOf('}'), t.lastIndexOf(']'));
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) {} }
+  return undefined;
+}
+function desktopSample() {
+  const cache = new Map();
+  async function call(prompt, opts, asJson) {
+    opts = opts || {};
+    if (opts.signal && opts.signal.aborted) throw { code: 'cancelled' };
+    const effort = opts.modelTier === 'quick' ? 'low' : 'medium';
+    const key = effort + '|' + prompt;
+    const fresh = opts.cache === false || (opts.cache && opts.cache.refresh);
+    let res = !fresh && cache.get(key);
+    if (!res) {
+      const p = host.api.ask(prompt, effort);
+      const aborted = opts.signal && new Promise((_, rej) => opts.signal.addEventListener('abort', () => rej({ code: 'cancelled' }), { once: true }));
+      res = await (aborted ? Promise.race([p, aborted]) : p);
+      if (!res || !res.ok) throw { code: (res && res.code) || 'upstream_error', message: (res && res.message) || '' };
+      cache.set(key, res);
+    }
+    if (opts.onText) opts.onText({ text: res.text, delta: res.text });
+    if (!asJson) return { text: res.text, truncated: !!res.truncated };
+    const v = parseLooseJson(res.text);
+    if (v === undefined) { cache.delete(key); throw { code: 'invalid_json', text: res.text }; }
+    return v;
+  }
+  const s = (input, opts) => call(input, opts, false);
+  s.json = (input, opts) => call(input, opts, true);
+  return s;
+}
+
+/* ================= Claude capabilities (optional; page works without them) ================= */
+function useCap(name) {
+  if (host) {
+    if (name !== 'sample') return Promise.resolve(null);
+    return Promise.resolve(host.api.ai_status()).then((s) => (s && s.configured ? desktopSample() : null)).catch(() => null);
+  }
+  try { return window.claude && window.claude.use ? Promise.resolve(window.claude.use(name)).catch(() => null) : Promise.resolve(null); }
+  catch (e) { return Promise.resolve(null); }
+}
+const ai = { sample: null, off: false };
+const aiReady = () => !!ai.sample && !ai.off;
+const AI_GONE = ['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'];
+function aiError(e) {
+  const code = e && e.code;
+  if (AI_GONE.includes(code)) { ai.off = true; refreshAiUi(); return 'Claude bu görünümde kullanılamıyor. Aşağıdaki sözlük bağlantılarını kullanabilirsin.'; }
+  if (code === 'cancelled') return '';
+  if (code === 'no_key') { ai.off = true; refreshAiUi(); return 'Claude bağlı değil. Kitaplıktaki “Claude ayarları” düğmesinden API anahtarını ekleyebilirsin.'; }
+  if (code === 'bad_key') return 'API anahtarı geçersiz ya da yetkisiz. “Claude ayarları”ndan kontrol et.';
+  if (code === 'connection') return 'İnternet bağlantısı yok gibi görünüyor. Bağlantını kontrol edip tekrar dene.';
+  if (code === 'bad_request') return 'Claude isteği kabul etmedi' + (e.message ? ': ' + e.message : '.');
+  if (code === 'rate_limited') return 'Kısa sürede çok soru soruldu. Biraz bekleyip tekrar dene.';
+  if (code === 'session_expired') return 'Oturumun sona ermiş. claude.ai’ye yeniden giriş yap.';
+  if (code === 'invalid_json' || code === 'empty_completion') return 'Cevap okunamadı. Tekrar dene.';
+  if (code === 'refused') return 'Claude bu isteğe cevap vermedi.';
+  return 'Bağlantı sorunu oldu. Tekrar dene.';
+}
+useCap('sample').then((s) => { ai.sample = s; refreshAiUi(); });
+
+/* ================= Preferences ================= */
+const FONTS = {
+  literata: '"Literata", "Iowan Old Style", "Palatino Linotype", Georgia, serif',
+  figtree: '"Figtree", "Segoe UI", system-ui, sans-serif',
+  atkinson: '"Atkinson Hyperlegible", Verdana, sans-serif',
+  book: '',
+};
+const prefs = Object.assign({ theme: 'auto', font: 'literata', fs: 19, lh: '1.65', width: '38em', level: 'B1', accent: 'en-US', rate: '0.9', mark: 'on' }, store.get('prefs', {}));
+function applyPrefs() {
+  const r = $('#reader');
+  if (!r.hidden) document.body.dataset.read = prefs.theme;
+  r.style.setProperty('--fs', prefs.fs + 'px');
+  r.style.setProperty('--lh', prefs.lh);
+  r.style.setProperty('--measure', prefs.width);
+  r.style.setProperty('--ff', FONTS[prefs.font] || FONTS.literata);
+  $('#fsOut').textContent = prefs.fs + ' px';
+  document.querySelectorAll('#prefs .seg').forEach((seg) => {
+    seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(String(prefs[seg.dataset.pref]) === b.dataset.v)));
+  });
+  const body = shadow && shadow.querySelector('.epub-body');
+  if (body) { body.classList.toggle('font-override', prefs.font !== 'book'); body.classList.toggle('mark-off', prefs.mark === 'off'); }
+  store.set('prefs', prefs);
+}
+function changePref(fn) {
+  const frac = scrollFrac();
+  fn(); applyPrefs();
+  requestAnimationFrame(() => { setFrac(frac); onScroll(); if (wc) placeCard(); });
+}
+
+/* ================= Reader state ================= */
+let zip = null, book = null, cur = -1, curWords = 0, navToken = 0, shadow = null;
+let blobUrls = new Map();
+const scroller = $('#scroller');
+
+function blobUrl(path) {
+  if (blobUrls.has(path)) return blobUrls.get(path);
+  const p = zip.bytes(path).then((b) => b ? URL.createObjectURL(new Blob([b], { type: mimeOf(path) })) : null);
+  blobUrls.set(path, p);
+  return p;
+}
+function releaseBook() {
+  for (const p of blobUrls.values()) p.then((u) => u && URL.revokeObjectURL(u));
+  blobUrls = new Map();
+  zip = null; book = null; cur = -1;
+  if (shadow) shadow.replaceChildren();
+}
+
+async function rewriteCss(css, cssPath) {
+  css = css.replace(/@import[^;]*;/gi, '');
+  const re = /url\(\s*(['"]?)([^'")]+)\1\s*\)/g;
+  const found = new Set();
+  for (const m of css.matchAll(re)) if (!isExternal(m[2]) && !m[2].startsWith('#')) found.add(m[2]);
+  const map = new Map();
+  for (const u of found) { const p = zip.find(resolvePath(cssPath, u)); if (p) map.set(u, await blobUrl(p)); }
+  css = css.replace(re, (all, q, u) => map.has(u) ? 'url("' + map.get(u) + '")' : (isExternal(u) && !/^(data|blob):/i.test(u) ? 'none' : all));
+  // book CSS targets <html>/<body>; inside the shadow root those become :host / .epub-body
+  return css.replace(/(^|[\s,{};>+~(])(html|body)(?=[\s,{.#:\[>+~)]|$)/gim, (m, a, b) => a + (b.toLowerCase() === 'html' ? ':host' : '.epub-body'));
+}
+
+const BASE_CSS = `
+:host { display:block; color: var(--ink); }
+.epub-body { font-size: var(--fs) !important; line-height: var(--lh) !important; margin: 0 !important; padding: 0 !important;
+  max-width: none !important; width: auto !important; color: var(--ink) !important; background: transparent !important;
+  column-count: auto !important; overflow-wrap: break-word; hyphens: manual; }
+.epub-body * { color: inherit !important; background-color: transparent !important; border-color: var(--rline); max-width: 100%; }
+.epub-body p, .epub-body li, .epub-body div, .epub-body blockquote, .epub-body dd, .epub-body span { line-height: inherit !important; }
+.epub-body h1, .epub-body h2, .epub-body h3, .epub-body h4 { line-height: 1.25 !important; text-wrap: balance; }
+.epub-body a { color: var(--rlink) !important; text-decoration-thickness: 1px; text-underline-offset: .16em; }
+.epub-body img { max-width: 100% !important; height: auto !important; max-height: 86vh; object-fit: contain; }
+.epub-body svg { max-width: 100%; height: auto; max-height: 86vh; }
+.epub-body table { display: block; overflow-x: auto; }
+.epub-body pre { overflow-x: auto; white-space: pre-wrap; }
+.font-override, .font-override *:not(code):not(pre):not(kbd):not(samp):not(tt) { font-family: var(--ff) !important; }
+.epub-body x-w { cursor: pointer; border-radius: 3px; transition: background-color .12s; }
+@media (hover: hover) { .epub-body x-w:hover { background-color: color-mix(in srgb, var(--rlink) 12%, transparent) !important; } }
+.epub-body x-w.saved { text-decoration: underline dotted var(--rlink) !important; text-decoration-thickness: 2px !important; text-underline-offset: .24em; }
+.epub-body.mark-off x-w.saved { text-decoration: none !important; }
+.epub-body x-w.active, .epub-body x-w.tts-word { background-color: var(--sel) !important; }
+.epub-body x-w.picked { background-color: color-mix(in srgb, var(--rlink) 24%, transparent) !important; box-shadow: inset 0 -2px 0 var(--rlink); }
+.epub-body .tts-block { background-color: color-mix(in srgb, var(--rlink) 7%, transparent) !important; box-shadow: 0 0 0 .35em color-mix(in srgb, var(--rlink) 7%, transparent); border-radius: 3px; }
+::selection { background: var(--sel); }
+`;
+
+const WORD_RE = /[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’][A-Za-zÀ-ÖØ-öø-ÿ]+)*/g;
+function wrapWords(root) {
+  const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      const p = n.parentNode;
+      if (!p || (p.closest && p.closest('svg, style, script, x-w'))) return NodeFilter.FILTER_REJECT;
+      return /[A-Za-z]/.test(n.data) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const nodes = [];
+  let n;
+  while ((n = tw.nextNode())) nodes.push(n);
+  for (const t of nodes) {
+    const s = t.data, frag = document.createDocumentFragment();
+    let last = 0, m;
+    WORD_RE.lastIndex = 0;
+    while ((m = WORD_RE.exec(s))) {
+      if (m.index > last) frag.appendChild(document.createTextNode(s.slice(last, m.index)));
+      const w = document.createElement('x-w');
+      w.textContent = m[0];
+      frag.appendChild(w);
+      last = m.index + m[0].length;
+    }
+    if (last < s.length) frag.appendChild(document.createTextNode(s.slice(last)));
+    t.parentNode.replaceChild(frag, t);
+  }
+}
+
+async function renderChapter(i) {
+  const item = book.spine[i];
+  const src = await zip.text(item.path);
+  const doc = parseDoc(src || '');
+
+  const styles = [];
+  for (const node of doc.querySelectorAll('link, style')) {
+    if (node.localName === 'link') {
+      const rel = node.getAttribute('rel') || '';
+      if (!/stylesheet/i.test(rel) || /alternate/i.test(rel)) continue;
+      const href = node.getAttribute('href'); if (!href || isExternal(href)) continue;
+      const p = zip.find(resolvePath(item.path, href));
+      const css = p && await zip.text(p);
+      if (css) styles.push(await rewriteCss(css, p));
+    } else styles.push(await rewriteCss(node.textContent || '', item.path));
+  }
+
+  const body = doc.body || byTag(doc, 'body')[0] || doc.documentElement;
+  // drop anything that could run code or leave the page
+  body.querySelectorAll('script, iframe, object, embed, form, base, meta, link, style, title, noscript, frame, frameset, applet').forEach((e) => e.remove());
+  for (const node of body.querySelectorAll('*')) {
+    for (const at of Array.from(node.attributes)) {
+      const n = at.name.toLowerCase();
+      if (n.startsWith('on') || (/(^|:)(href|src|action|formaction|poster)$/.test(n) && /^\s*(javascript|vbscript|data:text\/html)/i.test(at.value))) node.removeAttribute(at.name);
+    }
+  }
+  // resources -> blob URLs
+  const jobs = [];
+  for (const node of body.querySelectorAll('img[src], source[src], video[src], audio[src], video[poster], input[src]')) {
+    for (const attr of ['src', 'poster']) {
+      const v = node.getAttribute(attr);
+      if (!v || isExternal(v)) continue;
+      const p = zip.find(resolvePath(item.path, v));
+      jobs.push(p ? blobUrl(p).then((u) => u && node.setAttribute(attr, u)) : Promise.resolve(node.removeAttribute(attr)));
+    }
+  }
+  for (const node of byTag(body, 'image')) {
+    const v = node.getAttributeNS(XLINK, 'href') || node.getAttribute('href');
+    if (!v || isExternal(v)) continue;
+    const p = zip.find(resolvePath(item.path, v));
+    if (p) jobs.push(blobUrl(p).then((u) => { if (u) { node.setAttributeNS(XLINK, 'xlink:href', u); node.setAttribute('href', u); } }));
+  }
+  await Promise.all(jobs);
+  // links
+  for (const a of byTag(body, 'a')) {
+    const href = a.getAttribute('href') || a.getAttributeNS(XLINK, 'href');
+    if (!href) continue;
+    if (/^(https?|mailto|ftp):/i.test(href)) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer'); }
+    else if (isExternal(href)) a.removeAttribute('href');
+    else { a.setAttribute('data-epub-href', href); a.setAttribute('href', '#'); }
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'epub-body';
+  for (const at of ['class', 'id', 'dir', 'style']) {
+    const v = body.getAttribute && body.getAttribute(at);
+    if (v) at === 'class' ? wrap.classList.add(...v.split(/\s+/).filter(Boolean)) : wrap.setAttribute(at, v);
+  }
+  const lang = body.getAttribute('xml:lang') || body.getAttribute('lang') || doc.documentElement.getAttribute('xml:lang') || doc.documentElement.getAttribute('lang');
+  if (lang) wrap.setAttribute('lang', lang);
+  if (prefs.font !== 'book') wrap.classList.add('font-override');
+  if (prefs.mark === 'off') wrap.classList.add('mark-off');
+  for (const child of Array.from(body.childNodes)) wrap.appendChild(document.importNode(child, true));
+  wrapWords(wrap);
+
+  const nodes = [BASE_CSS, ...styles, BASE_CSS].map((css) => { const s = document.createElement('style'); s.textContent = css; return s; });
+  shadow.replaceChildren(...nodes, wrap);
+  cur = i;
+  curWords = (wrap.textContent.trim().match(/\S+/g) || []).length;
+  markSavedWords();
+  markPicked();
+  renderChapterEnd();
+}
+
+function settleImages() {
+  const imgs = Array.from(shadow.querySelectorAll('img'));
+  const waits = imgs.filter((im) => !im.complete).map((im) => new Promise((r) => { im.addEventListener('load', r, { once: true }); im.addEventListener('error', r, { once: true }); }));
+  return Promise.race([Promise.all(waits), new Promise((r) => setTimeout(r, 1500))]);
+}
+function maxScroll() { return Math.max(0, scroller.scrollHeight - scroller.clientHeight); }
+function scrollFrac() { const m = maxScroll(); return m ? scroller.scrollTop / m : 0; }
+function setFrac(f) { scroller.scrollTop = Math.round((f || 0) * maxScroll()); }
+function scrollToEl(node) {
+  const top = node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 20;
+  scroller.scrollTop = Math.max(0, top);
+}
+function findAnchor(frag) {
+  if (!frag || !shadow) return null;
+  return shadow.getElementById(frag) || shadow.querySelector('[name="' + CSS.escape(frag) + '"]');
+}
+
+async function goTo(i, opt = {}) {
+  if (!book || i < 0 || i >= book.spine.length) return;
+  if (!opt.keepReading) stopReading();
+  closeWordCard();
+  if (i === cur + 1 && cur >= 0) markChapterRead(cur);  // moved on to the next chapter
+  const token = ++navToken;
+  if (i !== cur) {
+    if (!shadow.childNodes.length) shadow.replaceChildren(Object.assign(document.createElement('p'), { className: 'loading', textContent: 'Bölüm yükleniyor…' }));
+    try { await renderChapter(i); }
+    catch (err) { console.error(err); shadow.replaceChildren(Object.assign(document.createElement('p'), { textContent: 'Bu bölüm açılamadı: ' + err.message })); cur = i; renderChapterEnd(); }
+    if (token !== navToken) return;
+    await settleImages();
+    if (token !== navToken) return;
+  }
+  const target = opt.frag ? findAnchor(opt.frag) : null;
+  if (target) scrollToEl(target); else setFrac(opt.frac || 0);
+  onScroll();
+  markToc();
+  saveProgress(true);
+}
+
+function renderChapterEnd() {
+  const end = $('#chapterEnd');
+  end.hidden = false;
+  end.replaceChildren();
+  const last = cur >= book.spine.length - 1;
+  end.appendChild(last ? el('span', 'end-mark', 'Son') : el('small', '', 'Bölüm sonu'));
+  if (last) end.appendChild(el('small', '', 'Kitabı bitirdin'));
+  const row = el('div', 'row');
+  if (curWords >= 120) {
+    const q = el('button', 'btn' + (last ? ' solid' : ''), 'Anladım mı? Kısa test');
+    q.type = 'button'; q.id = 'quizBtn';
+    q.hidden = !aiReady();
+    q.addEventListener('click', () => runQuiz(false));
+    row.appendChild(q);
+  }
+  if (!last) {
+    const b = el('button', 'btn solid', 'Devam et: ' + chapterLabel(cur + 1) + ' →');
+    b.type = 'button';
+    b.addEventListener('click', () => goTo(cur + 1));
+    row.appendChild(b);
+  }
+  end.appendChild(row);
+  const qz = el('div', 'quiz'); qz.id = 'quizBox'; qz.hidden = true;
+  end.appendChild(qz);
+  $('#prevBtn').disabled = cur <= 0;
+  $('#nextBtn').disabled = last;
+}
+
+function chapterLabel(i) {
+  const path = book.spine[i].path;
+  const toc = book.tocView || book.toc;
+  const hit = toc.find((t) => t.path === path && !t.frag) || toc.find((t) => t.path === path);
+  if (hit) return hit.label;
+  for (let j = i - 1; j >= 0; j--) {
+    const h = toc.find((t) => t.path === book.spine[j].path);
+    if (h) return h.label + ' (devam)';
+  }
+  return 'Bölüm ' + (i + 1);
+}
+
+/* ================= UI updates ================= */
+let raf = 0;
+function onScroll() {
+  if (wc && !$('#wordCard').classList.contains('sheet')) placeCard();
+  if (raf) return;
+  raf = requestAnimationFrame(() => {
+    raf = 0;
+    if (!book || cur < 0) return;
+    const f = scrollFrac();
+    const s = book.spine[cur];
+    const overall = Math.min(1, (s.start + f * s.size) / book.total);
+    $('#progressFill').style.width = (overall * 100).toFixed(2) + '%';
+    const mins = Math.ceil((curWords * (1 - f)) / 200);
+    const left = curWords < 30 ? '' : mins <= 1 ? ' · bölüm bitmek üzere' : ' · bölümde ~' + mins + ' dk';
+    const where = $('#where');
+    where.replaceChildren(el('b', '', '%' + Math.round(overall * 100)), document.createTextNode(' · ' + chapterLabel(cur) + left));
+    if (f >= 0.95 || maxScroll() < 40) markChapterRead(cur);
+    saveProgress(false);
+  });
+}
+scroller.addEventListener('scroll', onScroll, { passive: true });
+window.addEventListener('resize', () => { onScroll(); if (wc) placeCard(); });
+
+let saveTimer = 0;
+function saveProgress(now) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    if (!book || !book.record || cur < 0) return;
+    const f = scrollFrac(), s = book.spine[cur];
+    book.record.pos = { i: cur, frac: f };
+    book.record.percent = Math.min(1, (s.start + f * s.size) / book.total);
+    book.record.opened = Date.now();
+    store.set('pos:' + book.record.id, book.record.pos);
+    await books.put(book.record);
+  }, now ? 50 : 600);
+}
+
+function buildToc() {
+  const list = $('#tocList');
+  list.replaceChildren();
+  let entries = book.toc.filter((t) => t.path);
+  if (entries.length < 2) {
+    // thin or missing table of contents: list the reading order instead
+    const coverFirst = !!book.cover && /cover|title/i.test(book.spine[0].path);
+    entries = book.spine.map((s, i) => ({
+      label: (i === 0 && coverFirst) ? 'Kapak' : (book.toc.find((t) => t.path === s.path) || {}).label || 'Bölüm ' + (coverFirst ? i : i + 1),
+      path: s.path, frag: '', depth: 0,
+    }));
+  }
+  book.tocView = entries;
+  for (const t of entries) {
+    const li = el('li', 'd' + Math.min(2, t.depth));
+    const idx = book.spine.findIndex((s) => s.path === (zip.find(t.path) || t.path));
+    li.dataset.idx = idx;
+    const b = el('button', 'toc-go', t.label);
+    b.type = 'button'; b.dataset.path = t.path;
+    b.addEventListener('click', () => { closePanels(); openPath(t.path, t.frag); });
+    const check = el('button', 'toc-check', '✓');
+    check.type = 'button';
+    check.addEventListener('click', () => { if (idx >= 0) markChapterRead(idx, !isChapterRead(idx)); });
+    li.append(b, check); list.appendChild(li);
+  }
+  const head = $('#drawerBook');
+  head.replaceChildren();
+  if (book.coverUrl) { const im = el('img'); im.src = book.coverUrl; im.alt = ''; head.appendChild(im); }
+  const txt = el('div');
+  txt.append(el('b', '', book.title), el('span', '', book.author));
+  if (book.description) txt.appendChild(el('p', '', book.description));
+  head.appendChild(txt);
+}
+let tocFilter = 'all';
+function markToc() {
+  if (!book) return;
+  const path = book.spine[cur] && book.spine[cur].path;
+  let marked = false, nRead = 0, nUnread = 0;
+  document.querySelectorAll('#tocList li').forEach((li) => {
+    const b = li.querySelector('.toc-go');
+    const on = !marked && b.dataset.path === path;
+    if (on) marked = true;
+    b.classList.toggle('current', on);
+    if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    const read = isChapterRead(Number(li.dataset.idx));
+    if (read) nRead++; else nUnread++;
+    li.classList.toggle('read', read);
+    const check = li.querySelector('.toc-check');
+    check.title = read ? 'Okunmadı olarak işaretle' : 'Okundu olarak işaretle';
+    check.setAttribute('aria-label', b.textContent + ': ' + check.title);
+    li.hidden = (tocFilter === 'read' && !read) || (tocFilter === 'unread' && read);
+  });
+  $('#tocReadN').textContent = '(' + nRead + ')';
+  $('#tocUnreadN').textContent = '(' + nUnread + ')';
+}
+$('#tocFilter').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  tocFilter = b.dataset.f;
+  $('#tocFilter').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  markToc();
+});
+
+/* Read / unread: a chapter counts as read once its end has been on screen; the book is finished when every chapter is. */
+function isChapterRead(i) { return !!(book && book.record && (book.record.readCh || []).includes(i)); }
+function markChapterRead(i, read = true) {
+  if (!book || !book.record || i < 0) return;
+  const set = new Set(book.record.readCh || []);
+  if (set.has(i) === read) return;
+  if (read) set.add(i); else set.delete(i);
+  book.record.readCh = [...set].sort((a, b) => a - b);
+  const linear = book.spine.map((s, k) => (s.linear ? k : -1)).filter((k) => k >= 0);
+  const all = linear.every((k) => set.has(k));
+  if (all && !book.record.finished) { book.record.finished = true; toast('Tebrikler, kitabı bitirdin!'); }
+  if (!all) book.record.finished = false;
+  markToc();
+  saveProgress(true);
+}
+function openPath(path, frag) {
+  const key = zip.find(path) || path;
+  const i = book.spine.findIndex((s) => s.path === key);
+  if (i < 0) return;
+  if (i === cur && frag) { const t = findAnchor(frag); if (t) { scrollToEl(t); return; } }
+  goTo(i, { frag });
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+}
+
+/* ================= Vocabulary notebook =================
+   Kept in the viewer's private claude.ai store when available (data/users/<id>), mirrored in this browser. */
+const vocab = {
+  words: new Map(store.get('words', []).map((w) => [w.id, w])),
+  coll: null, mode: 'local',
+  listeners: [],
+  list() { return Array.from(this.words.values()); },
+  changed() { store.set('words', this.list()); this.listeners.forEach((fn) => fn()); },
+  async save(w) {
+    this.words.set(w.id, w); this.changed();
+    if (this.coll) { try { await this.coll.doc(w.id).set(w); } catch (e) { console.warn('db write', e); } }
+  },
+  async saveMany(list) {
+    for (const w of list) this.words.set(w.id, w);
+    this.changed();
+    if (this.coll) for (const w of list) { try { await this.coll.doc(w.id).set(w); } catch (e) { console.warn('db write', e); } }
+  },
+  async remove(id) {
+    this.words.delete(id); this.changed();
+    if (this.coll) { try { await this.coll.doc(id).delete(); } catch (e) { console.warn('db delete', e); } }
+  },
+};
+(async () => {
+  const [db, user] = await Promise.all([useCap('db'), useCap('user')]);
+  if (!db || !user) return;
+  let uid = null;
+  try { uid = await user.id(); } catch (e) {}
+  if (!uid) return;
+  let coll;
+  try { coll = db.collection('data/users/' + uid); } catch (e) { return; }
+  try {
+    const snap = await coll.get();
+    const remote = new Set(snap.docs.map((d) => d.id));
+    // words saved in this browser before the account store answered
+    for (const w of vocab.list()) if (!remote.has(w.id)) await coll.doc(w.id).set(w);
+  } catch (e) { return; }
+  vocab.coll = coll; vocab.mode = 'db';
+  coll.onSnapshot((snap) => {
+    const m = new Map();
+    for (const d of snap.docs) if (d.id.startsWith('w-')) { const v = d.data(); if (v && v.head) m.set(d.id, Object.assign({}, v, { id: d.id })); }
+    vocab.words = m; vocab.changed();
+  }, () => { vocab.coll = null; vocab.mode = 'local'; vocab.changed(); });
+  vocab.changed();
+})();
+
+function wordId(head) {
+  const s = head.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+  return 'w-' + (s || Date.now().toString(36));
+}
+const normWord = (w) => w.toLowerCase().replace(/’/g, "'");
+function variants(t) {
+  return [t, t.replace(/'s$/, ''), t.replace(/s$/, ''), t.replace(/es$/, ''), t.replace(/ies$/, 'y'), t.replace(/ied$/, 'y'),
+    t.replace(/ed$/, ''), t.replace(/d$/, ''), t.replace(/(.)\1ed$/, '$1'), t.replace(/ing$/, ''), t.replace(/ing$/, 'e'),
+    t.replace(/(.)\1ing$/, '$1'), t.replace(/er$/, ''), t.replace(/est$/, ''), t.replace(/ly$/, '')];
+}
+let savedForms = new Map();
+function rebuildForms() {
+  savedForms = new Map();
+  for (const w of vocab.list()) {
+    const keys = new Set([...(w.forms || [])]);
+    if (!w.phrase) { keys.add(w.head); if (w.lemma) keys.add(w.lemma); }
+    for (const k of keys) if (k) savedForms.set(normWord(k), w);
+  }
+}
+function savedFor(word) {
+  const t = normWord(word);
+  for (const v of variants(t)) if (v.length > 1 && savedForms.has(v)) return savedForms.get(v);
+  return null;
+}
+function markSavedWords() {
+  if (!shadow) return;
+  for (const w of shadow.querySelectorAll('x-w')) w.classList.toggle('saved', !!savedFor(w.textContent));
+}
+const dueWords = () => vocab.list().filter((w) => (w.due || 0) <= Date.now());
+vocab.listeners.push(() => {
+  rebuildForms();
+  markSavedWords();
+  const due = dueWords().length, total = vocab.words.size;
+  const badge = $('#dueBadge');
+  badge.hidden = !due; badge.textContent = due > 99 ? '99+' : String(due);
+  $('#nbCountTab').textContent = total ? '(' + total + ')' : '';
+  $('#nbDueTab').textContent = due ? '(' + due + ')' : '';
+  renderVocabStrip();
+  if (!$('#notebook').hidden && nbTab === 'list') renderNotebookList();
+  if (wc) updateSaveBtn();
+  $('#nbFoot').textContent = host ? 'Defterin bu bilgisayarda saklanıyor.' : vocab.mode === 'db'
+    ? 'Defterin claude.ai hesabında saklanıyor; bu sayfayı başka cihazda açınca da görünür. Yalnızca sen görebilirsin.'
+    : 'Defterin yalnızca bu tarayıcıda saklanıyor.';
+});
+function renderVocabStrip() {
+  const list = vocab.list();
+  $('#vocabStrip').hidden = !list.length;
+  $('#vsCount').textContent = list.length;
+  $('#vsDue').textContent = dueWords().length;
+  $('#vsLearned').textContent = list.filter((w) => (w.box || 1) >= 4).length;
+}
+
+/* ================= Text to speech ================= */
+const canSpeak = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+function pickVoice() {
+  const all = speechSynthesis.getVoices();
+  const want = prefs.accent.toLowerCase();
+  let vs = all.filter((v) => (v.lang || '').replace('_', '-').toLowerCase().startsWith(want));
+  if (!vs.length) vs = all.filter((v) => /^en/i.test(v.lang || ''));
+  return vs.find((v) => /natural|neural|online|google/i.test(v.name)) || vs.find((v) => v.localService) || vs[0] || null;
+}
+function utter(text, rate) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = prefs.accent;
+  const v = pickVoice(); if (v) u.voice = v;
+  u.rate = rate || Number(prefs.rate) || 1;
+  return u;
+}
+function say(text, rate) {
+  if (!canSpeak || !text) return;
+  stopReading();
+  speechSynthesis.cancel();
+  const u = utter(text, rate);
+  u.onerror = (e) => { if (e.error !== 'interrupted' && e.error !== 'canceled') toast('Ses çalınamadı. Tarayıcının sesli okuma desteği kapalı olabilir.'); };
+  speechSynthesis.speak(u);
+}
+if (canSpeak) { try { speechSynthesis.getVoices(); speechSynthesis.addEventListener('voiceschanged', () => {}); } catch (e) {} }
+
+const tts = { on: false, chunks: [], i: 0, token: 0, marks: [] };
+const BLOCKS = 'p,li,h1,h2,h3,h4,h5,h6,dd,dt,blockquote,figcaption,td,th';
+const SENT_RE = /[^.!?…]*[.!?…]+["'’”)\]]*\s*|[^.!?…]+$/g;
+function readingBlocks() {
+  const body = shadow.querySelector('.epub-body');
+  if (!body) return [];
+  let blocks = Array.from(body.querySelectorAll(BLOCKS)).filter((b) => !b.querySelector(BLOCKS) && b.textContent.trim());
+  if (!blocks.length) blocks = Array.from(body.querySelectorAll('div')).filter((d) => !d.querySelector('div,p') && d.textContent.trim());
+  return blocks;
+}
+function buildChunks() {
+  const out = [];
+  for (const block of readingBlocks()) {
+    const text = block.textContent;
+    let m;
+    SENT_RE.lastIndex = 0;
+    while ((m = SENT_RE.exec(text))) {
+      if (!m[0].length) { SENT_RE.lastIndex++; continue; }
+      if (m[0].trim()) out.push({ block, text: m[0], start: m.index });
+    }
+  }
+  return out;
+}
+function wordsOf(block) {
+  if (block._ayracWords) return block._ayracWords;
+  const out = [];
+  let pos = 0;
+  const tw = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = tw.nextNode())) {
+    const len = n.data.length;
+    if (n.parentNode.localName === 'x-w') out.push({ s: pos, e: pos + len, node: n.parentNode });
+    pos += len;
+  }
+  return (block._ayracWords = out);
+}
+function clearTtsMarks() { tts.marks.forEach((m) => m.classList.remove('tts-block', 'tts-word')); tts.marks = []; }
+function ensureVisible(node) {
+  const r = node.getBoundingClientRect(), s = scroller.getBoundingClientRect();
+  if (r.top < s.top + 30 || r.bottom > s.bottom - 40) {
+    const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    scroller.scrollTo({ top: scroller.scrollTop + r.top - s.top - 90, behavior });
+  }
+}
+function updateListenBtn() {
+  const b = $('#listenBtn');
+  b.hidden = !canSpeak;
+  b.setAttribute('aria-pressed', String(tts.on));
+  b.classList.toggle('listen-on', tts.on);
+  $('#listenLbl').textContent = tts.on ? 'Durdur' : 'Dinle';
+  $('#listenIcon').innerHTML = tts.on
+    ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'
+    : '<path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/>';
+}
+function startReading() {
+  if (!canSpeak || !book) return;
+  speechSynthesis.cancel();
+  tts.chunks = buildChunks();
+  if (!tts.chunks.length) { if (cur < book.spine.length - 1) { goTo(cur + 1, { keepReading: true }).then(startReading); } return; }
+  const top = scroller.getBoundingClientRect().top + 8;
+  let i = tts.chunks.findIndex((c) => c.block.getBoundingClientRect().bottom > top);
+  tts.on = true; tts.i = i < 0 ? 0 : i;
+  updateListenBtn();
+  speakChunk();
+}
+function speakChunk() {
+  clearTtsMarks();
+  if (!tts.on) return;
+  const c = tts.chunks[tts.i];
+  if (!c) {
+    if (cur < book.spine.length - 1) { goTo(cur + 1, { keepReading: true, frac: 0 }).then(() => { if (tts.on) startReading(); }); }
+    else stopReading();
+    return;
+  }
+  c.block.classList.add('tts-block'); tts.marks.push(c.block);
+  ensureVisible(c.block);
+  const u = utter(c.text);
+  const my = ++tts.token;
+  u.onboundary = (e) => {
+    if (my !== tts.token || (e.name && e.name !== 'word')) return;
+    const at = c.start + e.charIndex;
+    const w = wordsOf(c.block).find((x) => x.e > at);
+    tts.marks.filter((m) => m.localName === 'x-w').forEach((m) => m.classList.remove('tts-word'));
+    if (w) { w.node.classList.add('tts-word'); tts.marks.push(w.node); }
+  };
+  u.onend = () => { if (my !== tts.token || !tts.on) return; tts.i++; speakChunk(); };
+  u.onerror = (e) => {
+    if (my !== tts.token || e.error === 'interrupted' || e.error === 'canceled') return;
+    stopReading(); toast('Sesli okuma başlatılamadı. Tarayıcında İngilizce ses yüklü olmayabilir.');
+  };
+  speechSynthesis.speak(u);
+}
+function stopReading() {
+  const was = tts.on;
+  tts.on = false; tts.token++;
+  if (was && canSpeak) { try { speechSynthesis.cancel(); } catch (e) {} }
+  clearTtsMarks();
+  updateListenBtn();
+}
+$('#listenBtn').addEventListener('click', () => { if (tts.on) stopReading(); else { closeWordCard(); startReading(); } });
+
+/* ================= Word card ================= */
+let wc = null, wcToken = 0;
+const lookups = new Map();
+function sentenceOf(w) {
+  const block = w.closest('p,li,h1,h2,h3,h4,h5,h6,dd,dt,td,th,figcaption,blockquote,div') || w.parentNode;
+  const text = block.textContent;
+  const r = document.createRange();
+  r.setStart(block, 0); r.setEndBefore(w);
+  const off = r.toString().length;
+  let m;
+  SENT_RE.lastIndex = 0;
+  while ((m = SENT_RE.exec(text))) {
+    if (!m[0].length) { SENT_RE.lastIndex++; continue; }
+    if (m.index + m[0].length > off) return clean(m[0]).slice(0, 500);
+  }
+  return clean(text).slice(0, 500);
+}
+function markIn(container, sentence, word) {
+  container.replaceChildren();
+  const i = sentence.toLowerCase().search(new RegExp('\\b' + word.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b'));
+  if (i < 0) { container.textContent = sentence; return; }
+  container.append(document.createTextNode(sentence.slice(0, i)), el('mark', '', sentence.slice(i, i + word.length)), document.createTextNode(sentence.slice(i + word.length)));
+}
+function wordPrompt(word, sentence) {
+  return [
+    'You help a Turkish speaker learn English. Their level is CEFR ' + prefs.level + '.',
+    'Explain the English word below exactly as it is used in the sentence. Write Turkish meanings in natural Turkish.',
+    'Word: "' + word + '"',
+    'Sentence: "' + sentence + '"',
+    'Book: "' + (book ? book.title : '') + '"',
+    'If the word is part of a phrasal verb, idiom or fixed phrase in this sentence (for example "looked after", "in a hurry"), set "phrase" to that phrase in dictionary form and explain the phrase; otherwise "phrase" is "".',
+    'Reply with only one JSON object with these string fields:',
+    '{"lemma": dictionary form of the word, "pos": part of speech in Turkish (isim, fiil, sıfat, zarf, edat, bağlaç, zamir, ünlem), "form": short Turkish note on the grammatical form used here when it differs from the lemma (e.g. "travel fiilinin geçmiş zaman hâli"), else "", "ipa": IPA of the lemma (' + (prefs.accent === 'en-GB' ? 'British' : 'American') + ') without slashes, "cefr": CEFR level of the lemma or phrase (A1, A2, B1, B2, C1 or C2), "phrase": see above, "tr": Turkish meaning in THIS sentence (1-5 words), "other_tr": up to 3 other common Turkish meanings separated by commas, or "", "def": a simple English definition a ' + prefs.level + ' learner understands (at most 14 words), "example": a new short English example sentence using it, "example_tr": Turkish translation of that example}',
+  ].join('\n');
+}
+function lookupWord(word, sentence) {
+  const key = prefs.level + '|' + prefs.accent + '|' + word.toLowerCase() + '|' + sentence;
+  if (lookups.has(key)) return lookups.get(key);
+  const p = ai.sample.json(wordPrompt(word, sentence), { modelTier: 'quick', cache: { gcTime: DAY } });
+  lookups.set(key, p);
+  p.catch(() => lookups.delete(key));
+  return p;
+}
+const str = (v) => (typeof v === 'string' ? v.trim() : v == null ? '' : String(v).trim());
+function normalizeInfo(i) {
+  i = i && typeof i === 'object' ? i : {};
+  const o = {};
+  for (const k of ['lemma', 'pos', 'form', 'ipa', 'cefr', 'phrase', 'tr', 'other_tr', 'def', 'example', 'example_tr']) o[k] = str(i[k]);
+  o.ipa = o.ipa.replace(/^\/+|\/+$/g, '');
+  o.cefr = /^[ABC][12]$/i.test(o.cefr) ? o.cefr.toUpperCase() : '';
+  return o;
+}
+
+function openWordCard(w) {
+  stopReading();
+  if (wc && wc.el) wc.el.classList.remove('active');
+  const word = w.textContent.replace(/’/g, "'");
+  const sentence = sentenceOf(w);
+  wc = { word, sentence, el: w, info: null, pending: null, token: ++wcToken, ctl: null };
+  w.classList.add('active');
+  $('#wcWord').textContent = word;
+  $('#wcIpa').textContent = '';
+  $('#wcTags').replaceChildren();
+  markIn($('#wcSentence'), sentence, word);
+  $('#wcTrans').hidden = true; $('#wcTrans').textContent = '';
+  const q = encodeURIComponent(word.toLowerCase());
+  $('#wcCam').href = 'https://dictionary.cambridge.org/dictionary/english-turkish/' + q;
+  $('#wcTur').href = 'https://tureng.com/tr/turkce-ingilizce/' + q;
+  $('#wcYg').href = 'https://youglish.com/pronounce/' + q + '/english';
+  $('#wcSpeak').hidden = !canSpeak; $('#wcSaySentence').hidden = !canSpeak;
+  $('#wcTranslate').hidden = !aiReady();
+  $('#wcCamBtn').hidden = !host; $('#wcCam').hidden = !!host;
+  $('#wcAskAi').hidden = !(useDict() && aiReady());
+  $('#wcSource').hidden = !useDict();
+  const card = $('#wordCard');
+  card.hidden = false;
+  const existing = savedFor(word);
+  if (useDict()) {
+    // All translations come from the offline dictionary; Claude is only an optional extra.
+    $('#wcBody').replaceChildren(thinking('Sözlükte aranıyor…'));
+    const token = wc.token;
+    wc.pending = dictLookup(w).then((res) => {
+      if (!wc || wc.token !== token) return;
+      wc.dict = res;
+      if (res && res.found) { wc.info = dictInfo(res); renderDict(res); }
+      else renderManual('“' + word + '” çevrimdışı sözlükte yok. Cambridge’de bakabilir ya da anlamını kendin yazabilirsin.');
+      updateSaveBtn(); placeCard();
+    }).catch(() => { if (wc && wc.token === token) { renderManual('Sözlük okunamadı.'); placeCard(); } });
+  } else if (existing) { wc.info = Object.assign(normalizeInfo(existing), { tr: existing.tr }); renderInfo(); }
+  else if (aiReady()) {
+    $('#wcBody').replaceChildren(thinking('Claude anlamına bakıyor…'));
+    const token = wc.token;
+    wc.pending = lookupWord(word, sentence).then((info) => {
+      if (!wc || wc.token !== token) return;
+      wc.info = normalizeInfo(info); renderInfo(); placeCard();
+    }).catch((e) => {
+      if (!wc || wc.token !== token) return;
+      const msg = aiError(e);
+      renderManual(msg);
+      placeCard();
+    });
+  } else renderManual('');
+  updateSaveBtn();
+  placeCard(true);
+  hideTapHint();
+}
+function thinking(text) { const d = el('div', 'thinking'); d.append(el('span', 'pulse'), el('span', '', text)); return d; }
+
+/* ---------- Offline dictionary (desktop) ---------- */
+const dict = { available: false, cache: new Map() };
+if (host) Promise.resolve(host.api.dict_info()).then((i) => { dict.available = !!(i && i.available); }).catch(() => {});
+function useDict() { return !!host && dict.available; }
+const POS_TR = {
+  noun: 'isim', verb: 'fiil', adj: 'sıfat', adv: 'zarf', prep: 'edat', postp: 'edat', particle: 'edat', conj: 'bağlaç',
+  pron: 'zamir', intj: 'ünlem', det: 'belirleyici', article: 'tanımlık', num: 'sayı', name: 'özel isim', phrase: 'kalıp',
+  prep_phrase: 'kalıp', proverb: 'atasözü', abbrev: 'kısaltma', contraction: 'kısaltma', prefix: 'önek', suffix: 'sonek',
+  symbol: 'sembol', character: 'harf', adj_noun: 'sıfat/isim',
+};
+const posTr = (p) => POS_TR[p] || p || '';
+// Up to two words before and after the tapped word in the same clause, for phrase detection ("looked after").
+function neighbours(w) {
+  const block = w.closest('p,li,h1,h2,h3,h4,h5,h6,dd,dt,td,th,figcaption,blockquote,div') || w.parentNode;
+  const all = Array.from(block.querySelectorAll('x-w'));
+  const i = all.indexOf(w);
+  const gapOk = (a, b) => { const r = document.createRange(); r.setStartAfter(a); r.setEndBefore(b); return !/[.!?;:,"“”()–—]/.test(r.toString()); };
+  const prev = [], next = [];
+  for (let k = i - 1; k >= 0 && prev.length < 2 && gapOk(all[k], all[k + 1]); k--) prev.unshift(all[k].textContent);
+  for (let k = i + 1; k < all.length && next.length < 2 && gapOk(all[k - 1], all[k]); k++) next.push(all[k].textContent);
+  return { prev, next };
+}
+function dictLookup(w) {
+  const word = w.textContent.replace(/’/g, "'");
+  const { prev, next } = neighbours(w);
+  const key = [word, prev.join(' '), next.join(' ')].join('|').toLowerCase();
+  if (!dict.cache.has(key)) {
+    const p = Promise.resolve(host.api.dict_lookup(word, prev, next));
+    dict.cache.set(key, p);
+    p.catch(() => dict.cache.delete(key));
+  }
+  return dict.cache.get(key);
+}
+function pickIpa(entries) {
+  for (const e of entries || []) {
+    if (!e.i) continue;
+    const [us, uk] = e.i;
+    const v = prefs.accent === 'en-GB' ? (uk || us) : (us || uk);
+    if (v) return v.replace(/^\/|\/$/g, '');
+  }
+  return '';
+}
+function trWords(entries, max) {
+  const out = [];
+  for (const e of entries || []) for (const [, words] of e.t || []) for (const x of words.split(/,\s*/)) if (x && !out.includes(x)) out.push(x);
+  return max ? out.slice(0, max) : out;
+}
+// Shape a dictionary result like the notebook entries the rest of the app already uses.
+function dictInfo(res) {
+  const entries = res.entries || [];
+  const words = trWords(entries);
+  const firstK = entries.map((e) => (e.k || [])[0]).find(Boolean) || '';
+  const firstD = entries.map((e) => (e.d || [])[0]).find(Boolean) || '';
+  return {
+    lemma: res.head || '', pos: posTr((entries[0] || {}).p), ipa: pickIpa(entries), cefr: '', phrase: '',
+    tr: words.slice(0, 4).join(', ') || firstK, other_tr: words.slice(4, 9).join(', '),
+    def: firstD, form: res.note || '', example: '', example_tr: '',
+  };
+}
+function renderDictEntries(container, entries, limit) {
+  for (const e of (entries || []).slice(0, limit || 4)) {
+    const sec = el('div', 'dict-sec');
+    if (e.p) sec.appendChild(el('span', 'chip', posTr(e.p)));
+    if (e.t && e.t.length) {
+      const ul = el('ul', 'dict-tr');
+      for (const [sense, words] of e.t.slice(0, 5)) {
+        const li = el('li');
+        li.appendChild(el('b', '', words));
+        if (sense) li.appendChild(el('span', 'dict-sense', ' · ' + sense));
+        ul.appendChild(li);
+      }
+      sec.appendChild(ul);
+    }
+    if (e.k && e.k.length) {
+      const ul = el('ul', 'dict-k');
+      e.k.slice(0, 3).forEach((k) => ul.appendChild(el('li', '', k)));
+      sec.appendChild(ul);
+    }
+    if (e.d && e.d.length) sec.appendChild(el('div', 'wc-def', e.d.slice(0, 2).join(' · ')));
+    container.appendChild(sec);
+  }
+}
+function renderDict(res) {
+  $('#wcIpa').textContent = wc.info.ipa ? '/' + wc.info.ipa + '/' : '';
+  const tags = $('#wcTags'); tags.replaceChildren();
+  if (res.head && normWord(res.head) !== normWord(wc.word)) tags.appendChild(el('span', 'chip cefr', 'kök: ' + res.head));
+  if (res.note) tags.appendChild(el('span', '', res.note));
+  const body = $('#wcBody'); body.replaceChildren();
+  for (const ph of res.phrases || []) {
+    const box = el('div', 'dict-phrase');
+    const top = el('div', 'dict-phrase-top');
+    top.append(el('span', 'wc-phrase', 'Kalıp: '), el('b', '', ph.head));
+    const add = el('button', 'link-btn connect', savedFor(ph.head) || vocab.words.has(wordId(ph.head)) ? 'defterde ✓' : '+ deftere ekle');
+    add.type = 'button';
+    add.addEventListener('click', async () => {
+      if (vocab.words.has(wordId(ph.head))) return;
+      const info = dictInfo({ head: ph.head, entries: ph.entries });
+      info.phrase = ph.head;
+      await vocab.save(makeEntry(wc.word, wc.sentence, info, ''));
+      add.textContent = 'defterde ✓';
+      toast('“' + ph.head + '” deftere eklendi');
+    });
+    top.appendChild(add);
+    box.appendChild(top);
+    const words = trWords(ph.entries, 6);
+    const k = ph.entries.map((e) => (e.k || [])[0]).find(Boolean);
+    if (words.length) box.appendChild(el('div', 'wc-tr', words.join(', ')));
+    else if (k) box.appendChild(el('div', 'wc-tr', k));
+    body.appendChild(box);
+  }
+  renderDictEntries(body, res.entries, 4);
+  if (res.also) {
+    const also = el('details', 'dict-also');
+    also.appendChild(el('summary', '', 'Kök kelime: ' + res.also.head + (res.also.note ? ' (' + res.also.note + ')' : '')));
+    renderDictEntries(also, res.also.entries, 3);
+    also.addEventListener('toggle', () => placeCard());
+    body.appendChild(also);
+  }
+}
+
+/* ---------- Notebook entries ---------- */
+function makeEntry(word, sentence, info, manualTr) {
+  const i = info || {};
+  const head = normWord(i.phrase || i.lemma || word).trim();
+  return {
+    id: wordId(head), head, word, lemma: normWord(i.lemma || word), phrase: i.phrase || '',
+    ipa: i.ipa || '', pos: i.pos || '', cefr: i.cefr || '', tr: i.tr || manualTr || '',
+    other: i.other_tr || '', def: i.def || '', example: i.example || '', exampleTr: i.example_tr || '',
+    sentence, book: book ? book.title : '', forms: [normWord(word)],
+    added: Date.now(), box: 1, due: Date.now(), reviews: 0,
+  };
+}
+function renderInfo() {
+  const i = wc.info;
+  $('#wcIpa').textContent = i.ipa ? '/' + i.ipa + '/' : '';
+  const tags = $('#wcTags'); tags.replaceChildren();
+  if (i.cefr) tags.appendChild(el('span', 'chip cefr', i.cefr));
+  if (i.pos) tags.appendChild(el('span', 'chip', i.pos));
+  if (i.lemma && normWord(i.lemma) !== normWord(wc.word)) tags.appendChild(el('span', 'chip', 'kök: ' + i.lemma));
+  if (i.form) tags.appendChild(el('span', '', i.form));
+  const body = $('#wcBody'); body.replaceChildren();
+  if (i.phrase) { const p = el('div', 'wc-phrase'); p.append(document.createTextNode('Kalıp: '), el('b', '', i.phrase)); body.appendChild(p); }
+  if (i.tr) body.appendChild(el('div', 'wc-tr', i.tr));
+  if (i.other_tr) body.appendChild(el('div', 'wc-other', 'Diğer anlamları: ' + i.other_tr));
+  if (i.def) body.appendChild(el('div', 'wc-def', i.def));
+  if (i.example) { const ex = el('div', 'wc-ex', i.example); if (i.example_tr) ex.appendChild(el('small', '', i.example_tr)); body.appendChild(ex); }
+}
+function renderManual(msg) {
+  const body = $('#wcBody'); body.replaceChildren();
+  if (msg) body.appendChild(el('div', 'err-text', msg));
+  const box = el('div', 'wc-manual');
+  const lab = el('label', '', 'Anlamını kendin yaz (isteğe bağlı), sonra deftere ekle:');
+  lab.htmlFor = 'wcManual';
+  const inp = el('input', 'field'); inp.id = 'wcManual'; inp.type = 'text'; inp.placeholder = 'ör. seyahat etmek'; inp.autocomplete = 'off';
+  box.append(lab, inp);
+  body.appendChild(box);
+  if (host && !aiReady()) {
+    const c = el('button', 'link-btn connect', 'Anlamları Claude getirsin: Claude’u bağla'); c.type = 'button';
+    c.style.justifySelf = 'start';
+    c.addEventListener('click', () => openAiSetup());
+    body.appendChild(c);
+  }
+}
+function updateSaveBtn() {
+  if (!wc) return;
+  const b = $('#wcSave');
+  const ex = findWcEntry();
+  b.textContent = ex ? 'Defterde ✓  (çıkar)' : 'Deftere ekle';
+  b.classList.toggle('solid', !ex);
+}
+function findWcEntry() {
+  if (!wc) return null;
+  const i = wc.info;
+  if (i && (i.phrase || i.lemma)) { const id = wordId(i.phrase || i.lemma); if (vocab.words.has(id)) return vocab.words.get(id); }
+  return savedFor(wc.word);
+}
+function placeCard(first) {
+  const card = $('#wordCard');
+  if (card.hidden || !wc) return;
+  const narrow = window.innerWidth < 640;
+  card.classList.toggle('sheet', narrow);
+  if (narrow) {
+    card.style.left = ''; card.style.top = '';
+    if (first) requestAnimationFrame(() => {
+      const r = wc.el.getBoundingClientRect(), limit = window.innerHeight - card.offsetHeight - 24;
+      if (r.bottom > limit) scroller.scrollTop += r.bottom - limit + 12;
+    });
+    return;
+  }
+  const r = wc.el.getBoundingClientRect();
+  const cw = card.offsetWidth, ch = card.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+  const left = Math.min(Math.max(12, r.left + r.width / 2 - cw / 2), vw - cw - 12);
+  let top = (vh - r.bottom > ch + 20 || r.top < ch + 20) ? r.bottom + 10 : r.top - ch - 10;
+  top = Math.min(Math.max(8, top), vh - ch - 8);
+  card.style.left = left + 'px'; card.style.top = top + 'px';
+}
+function closeWordCard() {
+  if (wc && wc.el) wc.el.classList.remove('active');
+  if (wc && wc.ctl) wc.ctl.abort();
+  wc = null;
+  $('#wordCard').hidden = true;
+}
+$('#wcClose').addEventListener('click', closeWordCard);
+$('#wcSpeak').addEventListener('click', () => wc && say(wc.info && wc.info.phrase ? wc.info.phrase : wc.word, Math.min(Number(prefs.rate), 0.9)));
+$('#wcSaySentence').addEventListener('click', () => wc && say(wc.sentence));
+$('#wcSave').addEventListener('click', async () => {
+  if (!wc) return;
+  const ex = findWcEntry();
+  if (ex) { await vocab.remove(ex.id); toast('“' + ex.head + '” defterden çıkarıldı'); return; }
+  if (wc.pending) await wc.pending.catch(() => null);
+  if (!wc) return;
+  const manual = $('#wcManual');
+  const entry = makeEntry(wc.word, wc.sentence, wc.info, manual ? manual.value.trim() : '');
+  await vocab.save(entry);
+  toast('“' + entry.head + '” deftere eklendi');
+});
+$('#wcCamBtn').addEventListener('click', () => {
+  if (!wc || !host) return;
+  host.api.open_cambridge((wc.info && wc.info.lemma) || wc.word);
+});
+$('#wcAskAi').addEventListener('click', async () => {
+  if (!wc || !aiReady()) return;
+  const box = $('#wcTrans'), token = wc.token;
+  box.hidden = false; box.replaceChildren(thinking('Claude bu cümledeki anlamına bakıyor…'));
+  placeCard();
+  try {
+    const i = normalizeInfo(await lookupWord(wc.word, wc.sentence));
+    if (!wc || wc.token !== token) return;
+    box.textContent = [i.phrase ? 'Kalıp: ' + i.phrase : '', 'Bu cümlede: ' + i.tr, i.form, i.def].filter(Boolean).join('\n');
+  } catch (e) {
+    if (!wc || wc.token !== token) return;
+    box.replaceChildren(el('span', 'err-text', aiError(e) || 'Cevap alınamadı.'));
+  }
+  placeCard();
+});
+$('#wcTranslate').addEventListener('click', async () => {
+  if (!wc || !aiReady()) return;
+  const box = $('#wcTrans'), token = wc.token;
+  box.hidden = false; box.replaceChildren(thinking('Çeviriliyor…'));
+  placeCard();
+  if (wc.ctl) wc.ctl.abort();
+  wc.ctl = new AbortController();
+  const prompt = [
+    'Translate this English sentence from the book "' + (book ? book.title : '') + '" into natural Turkish for a CEFR ' + prefs.level + ' learner.',
+    'First line: only the Turkish translation.',
+    'Then at most 3 short lines, each starting with "• ", in Turkish, explaining any grammar point, tense or expression in the sentence that a ' + prefs.level + ' learner might find hard. Skip this part if nothing is notable.',
+    'No other text.',
+    'Sentence: "' + wc.sentence + '"',
+  ].join('\n');
+  try {
+    await ai.sample(prompt, { modelTier: 'quick', signal: wc.ctl.signal, cache: { gcTime: DAY }, onText: ({ text }) => { if (wc && wc.token === token) { box.textContent = text; placeCard(); } } });
+  } catch (e) {
+    if (!wc || wc.token !== token) return;
+    const msg = aiError(e);
+    if (msg) { box.replaceChildren(); if (e.text) box.append(document.createTextNode(e.text + '\n')); box.appendChild(el('span', 'err-text', msg)); }
+    else if (!e.text) box.hidden = true;
+  }
+});
+function refreshAiUi() {
+  const q = $('#quizBtn'); if (q) q.hidden = !aiReady();
+  if (wc) { $('#wcTranslate').hidden = !aiReady(); $('#wcAskAi').hidden = !(useDict() && aiReady()); }
+}
+/* ================= Multi-word selection ================= */
+const pick = { on: false, items: new Map() };
+function setPickMode(on) {
+  pick.on = on;
+  closeWordCard(); stopReading();
+  $('#pickBar').hidden = !on;
+  $('#pickModeBtn').setAttribute('aria-pressed', String(on));
+  if (!on) clearPicks();
+  renderPickBar();
+}
+function unmarkPick(key) { shadow.querySelectorAll('x-w.picked').forEach((x) => { if (normWord(x.textContent) === key) x.classList.remove('picked'); }); }
+function clearPicks() { pick.items.clear(); shadow.querySelectorAll('x-w.picked').forEach((x) => x.classList.remove('picked')); renderPickBar(); }
+function markPicked() { if (pick.items.size) shadow.querySelectorAll('x-w').forEach((x) => { if (pick.items.has(normWord(x.textContent))) x.classList.add('picked'); }); }
+function togglePick(w) {
+  const word = w.textContent.replace(/’/g, "'");
+  const key = normWord(word);
+  if (pick.items.has(key)) { pick.items.delete(key); unmarkPick(key); }
+  else {
+    const { prev, next } = neighbours(w);
+    pick.items.set(key, { word, sentence: sentenceOf(w), prev, next });
+    w.classList.add('picked');
+  }
+  hideTapHint();
+  renderPickBar();
+}
+function renderPickBar() {
+  const n = pick.items.size;
+  $('#pickCount').textContent = n ? n + ' kelime seçildi' : 'Deftere eklemek istediğin kelimelere dokun';
+  $('#pickAdd').disabled = !n;
+  $('#pickClear').hidden = !n;
+  const box = $('#pickWords');
+  box.replaceChildren();
+  for (const [key, it] of pick.items) {
+    const c = el('button', 'pick-chip', it.word + ' ×'); c.type = 'button'; c.title = 'Seçimden çıkar';
+    c.addEventListener('click', () => { pick.items.delete(key); unmarkPick(key); renderPickBar(); });
+    box.appendChild(c);
+  }
+  box.hidden = !n;
+}
+// Without the offline dictionary (web version), one Claude call explains every picked word.
+async function batchLookup(items) {
+  const list = items.slice(0, 40).map((it, k) => ({ n: k + 1, word: it.word, sentence: it.sentence }));
+  const prompt = [
+    'You help a Turkish speaker learn English. Their level is CEFR ' + prefs.level + '.',
+    'For each item, explain the English word exactly as it is used in its sentence. Write Turkish meanings in natural Turkish.',
+    'Reply with only a JSON array with one object per item, in the same order. Each object has these string fields:',
+    '{"lemma", "pos" (Turkish part of speech), "ipa" (no slashes), "cefr", "phrase" (phrasal verb or idiom in dictionary form, or ""), "tr" (Turkish meaning in this sentence, 1-5 words), "other_tr", "def" (simple English definition, at most 14 words)}',
+    'Items:', JSON.stringify(list),
+  ].join('\n');
+  const res = await ai.sample.json(prompt, { modelTier: 'quick', cache: { gcTime: DAY } });
+  const arr = Array.isArray(res) ? res : (res && Array.isArray(res.items) ? res.items : []);
+  return items.map((_, k) => (arr[k] ? normalizeInfo(arr[k]) : null));
+}
+async function addPicked() {
+  const items = [...pick.items.values()];
+  if (!items.length) return;
+  const btn = $('#pickAdd');
+  btn.disabled = true; btn.textContent = 'Anlamlar getiriliyor…';
+  let infos = items.map(() => null);
+  try {
+    if (useDict()) {
+      const res = await host.api.dict_lookup_many(items.map((i) => ({ word: i.word, prev: i.prev, next: i.next })));
+      infos = (res || []).map((r) => (r && r.found ? dictInfo(r) : null));
+    } else if (aiReady()) infos = await batchLookup(items);
+  } catch (e) { toast(aiError(e) || 'Anlamlar alınamadı; kelimeler anlamsız eklendi.'); }
+  const entries = [];
+  let already = 0;
+  items.forEach((it, k) => {
+    const e = makeEntry(it.word, it.sentence, infos[k], '');
+    if (vocab.words.has(e.id) || savedFor(it.word)) { already++; return; }
+    if (!entries.some((x) => x.id === e.id)) entries.push(e);
+  });
+  await vocab.saveMany(entries);
+  btn.textContent = 'Deftere ekle';
+  const missing = entries.filter((e) => !e.tr).length;
+  toast(entries.length + ' kelime deftere eklendi' + (already ? ', ' + already + ' tanesi zaten defterdeydi' : '') + (missing ? ', ' + missing + ' tanesinin anlamı bulunamadı' : ''));
+  clearPicks();
+}
+$('#pickModeBtn').addEventListener('click', () => setPickMode(!pick.on));
+$('#pickDone').addEventListener('click', () => setPickMode(false));
+$('#pickClear').addEventListener('click', clearPicks);
+$('#pickAdd').addEventListener('click', addPicked);
+
+function hideTapHint() { $('#tapHint').hidden = true; store.set('hintDone', true); }
+$('#tapHintClose').addEventListener('click', hideTapHint);
+
+/* ================= Chapter quiz ================= */
+let quizCtl = null;
+async function runQuiz(fresh) {
+  const box = $('#quizBox');
+  if (!box || !aiReady()) return;
+  const body = shadow.querySelector('.epub-body');
+  const text = clean(body ? body.textContent : '');
+  const excerpt = text.length > 24000 ? text.slice(-24000) : text;
+  box.hidden = false;
+  box.replaceChildren(thinking('Claude soruları hazırlıyor… (yarım dakika kadar sürebilir)'));
+  const stop = el('button', 'link-btn', 'Vazgeç'); stop.type = 'button';
+  box.appendChild(stop);
+  if (quizCtl) quizCtl.abort();
+  const ctl = quizCtl = new AbortController();
+  stop.addEventListener('click', () => { ctl.abort(); box.hidden = true; });
+  const prompt = [
+    'You are an English teacher. Write a reading-comprehension quiz for a Turkish learner at CEFR ' + prefs.level + ' about the text below, a chapter of "' + book.title + '".',
+    'Rules: exactly 4 multiple-choice questions in simple English (level ' + prefs.level + '), in story order. Mix questions about what happens and why with one vocabulary-in-context question.',
+    'Each question has 3 options and exactly one correct option. "why_tr" explains in one Turkish sentence why the answer is correct.',
+    'Reply with only JSON: {"questions":[{"q":"...","options":["...","...","..."],"answer":0,"why_tr":"..."}]}',
+    'TEXT:', '"""', excerpt, '"""',
+  ].join('\n');
+  try {
+    const res = await ai.sample.json(prompt, { signal: ctl.signal, cache: { gcTime: DAY, refresh: !!fresh } });
+    if (ctl !== quizCtl) return;
+    const qs = (res && Array.isArray(res.questions) ? res.questions : []).filter((q) => q && q.q && Array.isArray(q.options) && q.options.length > 1);
+    if (!qs.length) throw { code: 'invalid_json' };
+    renderQuiz(box, qs);
+  } catch (e) {
+    if (ctl !== quizCtl) return;
+    const msg = aiError(e);
+    if (!msg) return;
+    box.replaceChildren(el('p', 'err-text', msg));
+    const again = el('button', 'btn', 'Tekrar dene'); again.type = 'button';
+    again.addEventListener('click', () => runQuiz(false));
+    box.appendChild(again);
+  }
+}
+function renderQuiz(box, qs) {
+  box.replaceChildren();
+  const head = el('div', 'quiz-head');
+  const score = el('span', '', '0 / ' + qs.length);
+  head.append(el('b', '', 'Anlama testi'), score);
+  box.appendChild(head);
+  let answered = 0, right = 0;
+  qs.forEach((q, qi) => {
+    const wrapQ = el('div', 'qz');
+    wrapQ.appendChild(el('p', '', (qi + 1) + '. ' + str(q.q)));
+    const ans = Number(q.answer);
+    const btns = q.options.map((o, oi) => {
+      const b = el('button', 'qz-opt', str(o)); b.type = 'button';
+      b.addEventListener('click', () => {
+        btns.forEach((x) => { x.disabled = true; });
+        btns[ans] && btns[ans].classList.add('right');
+        if (oi !== ans) b.classList.add('wrong'); else right++;
+        answered++;
+        const why = el('div', 'qz-why');
+        why.append(el('b', '', oi === ans ? 'Doğru. ' : 'Yanlış. '), document.createTextNode(str(q.why_tr)));
+        wrapQ.appendChild(why);
+        score.textContent = right + ' / ' + qs.length + ' doğru';
+        if (answered === qs.length) {
+          const fin = el('div', 'row');
+          fin.style.justifyContent = 'flex-start';
+          const again = el('button', 'btn', 'Yeni sorular'); again.type = 'button';
+          again.addEventListener('click', () => runQuiz(true));
+          fin.append(el('span', 'note', right === qs.length ? 'Hepsi doğru, harika!' : 'Yanlışların olduğu yerleri bölümde tekrar okuyabilirsin.'), again);
+          box.appendChild(fin);
+        }
+      });
+      return b;
+    });
+    btns.forEach((b) => wrapQ.appendChild(b));
+    box.appendChild(wrapQ);
+  });
+}
+
+/* ================= Notebook drawer & review ================= */
+let nbTab = 'list';
+function openNotebook(tab) {
+  closePanels(true);
+  closeWordCard();
+  $('#notebook').hidden = false; $('#scrim').hidden = false;
+  $('#nbBtn').setAttribute('aria-expanded', 'true');
+  setNbTab(tab || 'list');
+}
+function setNbTab(tab) {
+  nbTab = tab;
+  $('#nbTabs').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
+  $('#nbList').hidden = tab !== 'list'; $('#nbReview').hidden = tab !== 'review';
+  if (tab === 'list') renderNotebookList(); else startReview();
+}
+$('#nbTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setNbTab(b.dataset.tab); });
+$('#nbBtn').addEventListener('click', () => { if ($('#notebook').hidden) openNotebook('list'); else closePanels(); });
+$('#nbClose').addEventListener('click', () => closePanels());
+$('#vsOpen').addEventListener('click', () => openNotebook('list'));
+$('#vsReview').addEventListener('click', () => openNotebook('review'));
+$('#nbSearch').addEventListener('input', () => renderNotebookList());
+
+function boxes(n) { const b = el('span', 'boxes'); b.title = 'Kutu ' + n + ' / 6'; for (let i = 1; i <= 6; i++) b.appendChild(el('i', i <= n ? 'on' : '')); return b; }
+function dueText(w) {
+  const d = (w.due || 0) - Date.now();
+  if (d <= 0) return 'tekrar zamanı geldi';
+  const days = Math.round(d / DAY);
+  return days < 1 ? 'tekrar: bugün' : days === 1 ? 'tekrar: yarın' : 'tekrar: ' + days + ' gün sonra';
+}
+function renderNotebookList() {
+  const ul = $('#nbItems');
+  ul.replaceChildren();
+  const q = $('#nbSearch').value.trim().toLowerCase();
+  const list = vocab.list().sort((a, b) => (b.added || 0) - (a.added || 0))
+    .filter((w) => !q || [w.head, w.tr, w.word, w.def].some((x) => (x || '').toLowerCase().includes(q)));
+  if (!list.length) {
+    ul.appendChild(el('li', 'nb-empty', vocab.words.size ? 'Aramana uyan kelime yok.' : 'Defterin boş. Okurken bilmediğin bir kelimeye dokun ve “Deftere ekle”ye bas. Eklediğin kelimeler metinde altı çizili görünür.'));
+    return;
+  }
+  for (const w of list) {
+    const li = el('li', 'nb-item');
+    const top = el('div', 'nb-top');
+    top.appendChild(el('b', '', w.head));
+    if (w.ipa) top.appendChild(el('span', 'wc-ipa', '/' + w.ipa + '/'));
+    if (canSpeak) { const s = el('button', 'nb-say'); s.type = 'button'; s.innerHTML = SPEAK_SVG; s.setAttribute('aria-label', w.head + ' seslendir'); s.addEventListener('click', () => say(w.head, 0.9)); top.appendChild(s); }
+    if (w.cefr) top.appendChild(el('span', 'chip cefr', w.cefr));
+    if (w.pos) top.appendChild(el('span', 'chip', w.pos));
+    li.appendChild(top);
+    if (w.tr) li.appendChild(el('div', 'nb-tr', w.tr));
+    if (w.sentence) { const s = el('div', 'nb-sent'); markIn(s, '“' + w.sentence + '”', w.word || w.head); li.appendChild(s); }
+    const meta = el('div', 'nb-meta');
+    meta.append(boxes(w.box || 1), el('span', '', dueText(w)));
+    if (w.book) meta.appendChild(el('span', '', w.book));
+    const rm = el('button', 'link-btn', 'Sil'); rm.type = 'button';
+    let t = 0;
+    rm.addEventListener('click', () => {
+      if (!rm.classList.contains('confirm')) { rm.classList.add('confirm'); rm.textContent = 'Emin misin?'; t = setTimeout(() => { rm.classList.remove('confirm'); rm.textContent = 'Sil'; }, 3000); return; }
+      clearTimeout(t); vocab.remove(w.id);
+    });
+    meta.appendChild(rm);
+    li.appendChild(meta);
+    ul.appendChild(li);
+  }
+}
+
+/* Leitner boxes: a known word moves up a box and comes back later; a missed word returns to box 1. */
+const INTERVAL_DAYS = [0, 0, 1, 3, 7, 16, 40];
+const review = { queue: [], done: 0, total: 0, revealed: false };
+function startReview() {
+  review.queue = dueWords().sort((a, b) => (a.due || 0) - (b.due || 0)).map((w) => w.id);
+  review.done = 0; review.total = review.queue.length; review.revealed = false;
+  renderReview();
+}
+function renderReview() {
+  const pane = $('#nbReview');
+  pane.replaceChildren();
+  const w = vocab.words.get(review.queue[0]);
+  if (!w) {
+    const fc = el('div', 'fc');
+    const all = vocab.list();
+    if (!all.length) fc.appendChild(el('p', 'nb-empty', 'Tekrar edecek kelime yok. Önce okurken birkaç kelimeyi deftere ekle.'));
+    else {
+      const next = all.reduce((m, x) => Math.min(m, x.due || 0), Infinity);
+      const days = Math.max(0, Math.ceil((next - Date.now()) / DAY));
+      fc.appendChild(el('p', 'nb-empty', (review.total ? review.total + ' kelimeyi tekrar ettin. ' : 'Şu an tekrar zamanı gelen kelime yok. ') + (days <= 0 ? 'Sıradaki tekrar bugün.' : days === 1 ? 'Sıradaki tekrar yarın.' : 'Sıradaki tekrar ' + days + ' gün sonra.')));
+    }
+    pane.appendChild(fc);
+    return;
+  }
+  const fc = el('div', 'fc');
+  const top = el('div', 'fc-top');
+  top.append(el('span', '', (review.done + 1) + ' / ' + Math.max(review.total, review.done + review.queue.length)), boxes(w.box || 1));
+  const bar = el('div', 'fc-bar'); const fill = el('i'); fill.style.width = (review.total ? Math.min(100, review.done / review.total * 100) : 0) + '%'; bar.appendChild(fill);
+  const card = el('div', 'fc-card');
+  const word = el('div', 'fc-word', w.head);
+  card.appendChild(word);
+  if (canSpeak) { const s = el('button', 'btn'); s.type = 'button'; s.innerHTML = SPEAK_SVG + '<span>Dinle</span>'; s.addEventListener('click', () => say(w.head, 0.9)); card.appendChild(s); }
+  if (w.sentence) { const s = el('div', 'fc-sent'); markIn(s, w.sentence, w.word || w.head); card.appendChild(s); }
+  const back = el('div', 'fc-back'); back.hidden = !review.revealed;
+  if (w.ipa) back.appendChild(el('div', 'wc-ipa', '/' + w.ipa + '/'));
+  back.appendChild(el('div', 'wc-tr', w.tr || '(anlam yazılmamış)'));
+  if (w.def) back.appendChild(el('div', 'wc-def', w.def));
+  if (w.example) { const ex = el('div', 'wc-ex', w.example); if (w.exampleTr) ex.appendChild(el('small', '', w.exampleTr)); back.appendChild(ex); }
+  card.appendChild(back);
+  fc.append(top, bar, card);
+  if (!review.revealed) {
+    const rev = el('button', 'btn solid', 'Anlamını göster'); rev.type = 'button'; rev.style.justifySelf = 'center';
+    rev.addEventListener('click', () => { review.revealed = true; renderReview(); });
+    fc.append(rev, el('div', 'kbd-hint', 'Önce anlamını kendin hatırlamaya çalış. (Boşluk: göster)'));
+  } else {
+    const g = el('div', 'fc-grade');
+    const no = el('button', 'no'); no.type = 'button'; no.append(el('span', '', 'Bilemedim'), el('small', '', 'birazdan tekrar sorulur'));
+    const yes = el('button', 'yes'); yes.type = 'button';
+    const nextBox = Math.min(6, (w.box || 1) + 1);
+    yes.append(el('span', '', 'Bildim'), el('small', '', INTERVAL_DAYS[nextBox] === 1 ? 'yarın tekrar' : INTERVAL_DAYS[nextBox] + ' gün sonra tekrar'));
+    no.addEventListener('click', () => grade(false));
+    yes.addEventListener('click', () => grade(true));
+    g.append(no, yes);
+    fc.append(g, el('div', 'kbd-hint', '← Bilemedim · Bildim →'));
+  }
+  pane.appendChild(fc);
+}
+async function grade(known) {
+  const id = review.queue.shift();
+  const w = vocab.words.get(id);
+  review.revealed = false;
+  if (w) {
+    const upd = Object.assign({}, w, { reviews: (w.reviews || 0) + 1, last: Date.now() });
+    if (known) { upd.box = Math.min(6, (w.box || 1) + 1); upd.due = Date.now() + INTERVAL_DAYS[upd.box] * DAY; review.done++; }
+    else { upd.box = 1; upd.due = Date.now(); review.queue.push(id); }
+    renderReview();
+    await vocab.save(upd);
+  } else renderReview();
+}
+
+/* ================= Panels ================= */
+function closePanels(keepScrim) {
+  $('#tocDrawer').hidden = true; $('#prefs').hidden = true; $('#notebook').hidden = true;
+  if (!keepScrim) $('#scrim').hidden = true;
+  $('#tocBtn').setAttribute('aria-expanded', 'false'); $('#prefsBtn').setAttribute('aria-expanded', 'false'); $('#nbBtn').setAttribute('aria-expanded', 'false');
+}
+$('#tocBtn').addEventListener('click', () => {
+  const open = $('#tocDrawer').hidden;
+  closePanels(); closeWordCard();
+  if (open) {
+    $('#tocDrawer').hidden = false; $('#scrim').hidden = false; $('#tocBtn').setAttribute('aria-expanded', 'true');
+    const c = document.querySelector('#tocList .current'); (c || $('#tocClose')).focus();
+    if (c) c.scrollIntoView({ block: 'center' });
+  }
+});
+$('#tocClose').addEventListener('click', () => closePanels());
+$('#scrim').addEventListener('click', () => closePanels());
+$('#prefsBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const open = $('#prefs').hidden;
+  closePanels(); closeWordCard();
+  if (open) { $('#prefs').hidden = false; $('#prefsBtn').setAttribute('aria-expanded', 'true'); }
+});
+document.addEventListener('click', (e) => {
+  const path = e.composedPath();
+  if (!$('#prefs').hidden && !path.includes($('#prefs')) && !path.includes($('#prefsBtn'))) closePanels();
+  if (wc && !path.includes($('#wordCard')) && !path.includes($('#bookHost'))) closeWordCard();
+});
+document.querySelectorAll('#prefs .seg').forEach((seg) => seg.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  changePref(() => { prefs[seg.dataset.pref] = b.dataset.v; });
+}));
+$('#fsDown').addEventListener('click', () => changePref(() => { prefs.fs = Math.max(13, prefs.fs - 1); }));
+$('#fsUp').addEventListener('click', () => changePref(() => { prefs.fs = Math.min(32, prefs.fs + 1); }));
+$('#prevBtn').addEventListener('click', () => goTo(cur - 1, { frac: 0 }));
+$('#nextBtn').addEventListener('click', () => goTo(cur + 1, { frac: 0 }));
+$('#backBtn').addEventListener('click', () => showLibrary());
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { if (wc) closeWordCard(); else if (pick.on) setPickMode(false); else closePanels(); return; }
+  if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+  if (!$('#notebook').hidden) {
+    if (nbTab !== 'review' || !review.queue.length) return;
+    if (!review.revealed && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); review.revealed = true; renderReview(); }
+    else if (review.revealed && e.key === 'ArrowLeft') { e.preventDefault(); grade(false); }
+    else if (review.revealed && e.key === 'ArrowRight') { e.preventDefault(); grade(true); }
+    return;
+  }
+  if ($('#reader').hidden || !$('#tocDrawer').hidden) return;
+  const page = scroller.clientHeight * 0.9;
+  if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goTo(cur + 1); return; }
+  if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goTo(cur - 1); return; }
+  if (e.key === 'ArrowRight' || e.key === 'PageDown' || (e.key === ' ' && !e.shiftKey)) {
+    e.preventDefault(); closeWordCard();
+    if (scroller.scrollTop >= maxScroll() - 2) goTo(cur + 1, { frac: 0 }); else scroller.scrollBy({ top: page });
+  } else if (e.key === 'ArrowLeft' || e.key === 'PageUp' || (e.key === ' ' && e.shiftKey)) {
+    e.preventDefault(); closeWordCard();
+    if (scroller.scrollTop <= 2) goTo(cur - 1, { frac: 1 }); else scroller.scrollBy({ top: -page });
+  }
+});
+
+/* ================= Opening books ================= */
+function showError(msg) { const b = $('#errorBox'); b.textContent = msg; b.hidden = !msg; }
+async function openFile(file, saved) {
+  showError('');
+  $('#busy').hidden = false;
+  try {
+    if (typeof DecompressionStream === 'undefined') throw new Error('Bu tarayıcı EPUB açmak için gereken özelliği desteklemiyor. Chrome, Edge, Firefox ya da Safari’nin güncel sürümünü dene.');
+    if (file && file.lazyId) {
+      file = await books.file(file.lazyId);
+      if (!file) throw new Error('Kitap dosyası bulunamadı. Kitaplıktan kaldırıp yeniden açmayı dene.');
+    }
+    const buf = await file.arrayBuffer();
+    const z = await openZip(buf);
+    stopReading();
+    releaseBook();
+    zip = z;
+    const b = await parseBook(z);
+    book = b;
+    book.coverUrl = b.cover ? await blobUrl(b.cover) : null;
+    const id = b.identifier ? 'id:' + b.identifier : 'f:' + b.title + '|' + file.size;
+    saved = saved || await books.get(id);
+    const coverBytes = b.cover ? await z.bytes(b.cover) : null;
+    book.record = {
+      id, title: b.title, author: b.author, size: file.size,
+      file: file instanceof Blob ? file : new Blob([buf], { type: 'application/epub+zip' }),
+      cover: coverBytes ? new Blob([coverBytes], { type: mimeOf(b.cover) }) : null,
+      added: (saved && saved.added) || Date.now(), opened: Date.now(),
+      pos: (saved && saved.pos) || store.get('pos:' + id, null), percent: (saved && saved.percent) || 0,
+      readCh: (saved && saved.readCh) || [], finished: !!(saved && saved.finished),
+    };
+    books.put(book.record);
+    $('#bookTitle').textContent = b.title;
+    $('#bookAuthor').textContent = b.author;
+    buildToc();
+    $('#library').hidden = true; $('#reader').hidden = false;
+    $('#tapHint').hidden = !!store.get('hintDone', false);
+    applyPrefs();
+    closePanels();
+    const pos = book.record.pos;
+    const first = Math.max(0, book.spine.findIndex((s) => s.linear));
+    await goTo(pos && pos.i < book.spine.length ? pos.i : first, { frac: pos ? pos.frac : 0 });
+    scroller.focus({ preventScroll: true });
+  } catch (err) {
+    console.error(err);
+    releaseBook();
+    showLibrary();
+    showError((file.name ? '“' + file.name + '” açılamadı. ' : 'Kitap açılamadı. ') + (err && err.message ? err.message : ''));
+  } finally {
+    $('#busy').hidden = true;
+  }
+}
+window.ayracOpen = openFile;
+
+async function showLibrary() {
+  stopReading(); closeWordCard();
+  if (pick.on) setPickMode(false);
+  if (book) { saveProgress(true); await new Promise((r) => setTimeout(r, 120)); }
+  closePanels();
+  $('#reader').hidden = true; $('#library').hidden = false;
+  delete document.body.dataset.read;
+  renderShelf(); renderVocabStrip();
+}
+
+let coverUrls = [];
+async function renderShelf() {
+  coverUrls.forEach((u) => URL.revokeObjectURL(u)); coverUrls = [];
+  let recs;
+  try { recs = ((await books.all()) || []).sort((a, b) => (b.opened || 0) - (a.opened || 0)); }
+  catch (e) {
+    console.error(e);
+    devlog('error', 'library: cannot list books: ' + ((e && (e.stack || e.message)) || e));
+    $('#shelfLoading').hidden = false;
+    $('#shelfLoading').textContent = 'Kitaplık okunamadı. Ayraç’ı kapatıp yeniden aç; kitapların silinmedi.';
+    return;
+  }
+  $('#shelfLoading').hidden = true;
+  devlog('info', 'library: showing ' + recs.length + ' books');
+  const shelfRoot = $('#shelf');
+  shelfRoot.replaceChildren();
+  $('#shelfEmpty').hidden = recs.length > 0;
+  $('#shelfCount').textContent = recs.length ? recs.length + ' kitap' : '';
+  // Reading now / not started / finished
+  const stateOf = (r) => (r.finished ? 'done' : ((r.percent || 0) >= 0.02 || (r.readCh || []).some((i) => i > 0)) ? 'reading' : 'unread');
+  const groups = [
+    ['reading', 'Okuyorum', 'kaldığın yerden devam et'],
+    ['unread', 'Okunmamış', 'henüz başlamadığın kitaplar'],
+    ['done', 'Bitirdiklerim', 'okuyup bitirdiğin kitaplar'],
+  ];
+  const grids = {};
+  for (const [key, title, hint] of groups) {
+    const members = recs.filter((r) => stateOf(r) === key);
+    if (!members.length) continue;
+    const sec = el('section', 'shelf-group');
+    const h = el('h3', '', title);
+    h.appendChild(el('span', '', members.length + ' · ' + hint));
+    const grid = el('div', 'shelf');
+    sec.append(h, grid);
+    shelfRoot.appendChild(sec);
+    grids[key] = grid;
+  }
+  for (const r of recs) {
+    const shelf = grids[stateOf(r)];
+    const card = el('div', 'book');
+    const open = el('button', 'book-open'); open.type = 'button';
+    open.setAttribute('aria-label', r.title + ' kitabını aç');
+    const cover = el('div', 'cover');
+    if (r.cover) {
+      const u = URL.createObjectURL(r.cover); coverUrls.push(u);
+      const im = el('img'); im.src = u; im.alt = ''; cover.appendChild(im);
+    } else {
+      const g = el('div', 'cover-gen');
+      g.append(el('b', '', r.title), el('small', '', r.author || ''));
+      cover.appendChild(g);
+    }
+    if (r.finished) cover.appendChild(el('span', 'book-done', 'Okundu ✓'));
+    open.append(cover, el('div', 'book-title', r.title), el('div', 'book-author', r.author || 'Yazar bilinmiyor'));
+    open.addEventListener('click', () => openFile(r.file, r));
+    const pct = Math.round((r.percent || 0) * 100);
+    const meta = el('div', 'book-meta');
+    const meter = el('span', 'meter'); const fill = el('i'); fill.style.width = pct + '%'; meter.appendChild(fill);
+    meta.append(meter, el('span', '', '%' + pct));
+    const rm = el('button', 'book-remove', 'Kitaplıktan kaldır'); rm.type = 'button';
+    let t = 0;
+    rm.addEventListener('click', async () => {
+      if (!rm.classList.contains('confirm')) {
+        rm.classList.add('confirm'); rm.textContent = 'Emin misin? Tekrar tıkla';
+        t = setTimeout(() => { rm.classList.remove('confirm'); rm.textContent = 'Kitaplıktan kaldır'; }, 3500);
+        return;
+      }
+      clearTimeout(t);
+      await books.del(r.id);
+      store.del('pos:' + r.id);
+      renderShelf();
+    });
+    const mark = el('button', 'book-remove', r.finished ? 'Okunmadı yap' : 'Okundu say'); mark.type = 'button';
+    mark.title = r.finished ? 'Okunmamışlara taşır ve ilerlemeyi sıfırlar' : 'Bitirdiklerim bölümüne taşır';
+    mark.addEventListener('click', async () => {
+      if (r.finished) { r.finished = false; r.readCh = []; r.percent = 0; r.pos = null; store.del('pos:' + r.id); }
+      else { r.finished = true; r.percent = 1; }
+      await books.put(r);
+      renderShelf();
+    });
+    const actions = el('div', 'book-actions');
+    actions.append(mark, rm);
+    card.append(open, meta, actions);
+    shelf.appendChild(card);
+  }
+}
+
+/* file picking + drag and drop */
+$('#pickBtn').addEventListener('click', () => $('#fileInput').click());
+$('#fileInput').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) openFile(f); });
+let dragDepth = 0;
+const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+window.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $('#dropOverlay').hidden = false; $('#dropZone').classList.add('over'); });
+window.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) { $('#dropOverlay').hidden = true; $('#dropZone').classList.remove('over'); } });
+window.addEventListener('drop', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); dragDepth = 0; $('#dropOverlay').hidden = true; $('#dropZone').classList.remove('over');
+  const f = Array.from(e.dataTransfer.files).find((x) => /\.epub$/i.test(x.name)) || e.dataTransfer.files[0];
+  if (f) openFile(f);
+});
+
+/* shadow root for book content: in-book links and word taps */
+shadow = $('#bookHost').attachShadow({ mode: 'open' });
+shadow.addEventListener('click', (e) => {
+  const t = e.target;
+  if (pick.on) {
+    const pw = t.closest && t.closest('x-w');
+    if (pw) { e.preventDefault(); togglePick(pw); }
+    return;
+  }
+  const a = t.closest && t.closest('a');
+  if (a) {
+    if (a.hasAttribute('data-epub-href')) {
+      e.preventDefault();
+      const href = a.getAttribute('data-epub-href');
+      const path = href.startsWith('#') ? book.spine[cur].path : resolvePath(book.spine[cur].path, href);
+      openPath(path, fragOf(href));
+    } else if (a.getAttribute('href') === '#') e.preventDefault();
+    return;
+  }
+  const sel = shadow.getSelection ? shadow.getSelection() : document.getSelection();
+  if (sel && !sel.isCollapsed && String(sel).trim()) return;
+  const w = t.closest && t.closest('x-w');
+  if (w) openWordCard(w); else closeWordCard();
+});
+
+window.addEventListener('pagehide', () => saveProgress(true));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveProgress(true); });
+
+/* ================= Desktop: Claude connection settings ================= */
+const aiModal = $('#aiSetup');
+let aiModel = 'opus';
+async function refreshAiStatus() {
+  const s = (await host.api.ai_status()) || {};
+  aiModel = s.model || 'opus';
+  $('#aiModel').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === aiModel)));
+  const chip = $('#aiChip');
+  chip.textContent = s.configured ? 'Claude bağlı' : 'Claude bağlı değil';
+  chip.classList.toggle('on', !!s.configured);
+  $('#aiRemove').hidden = !s.keyring;
+  $('#aiKey').placeholder = s.configured ? (s.source === 'env' ? 'ANTHROPIC_API_KEY ortam değişkeninden okunuyor' : 'Kayıtlı anahtar var · değiştirmek için yenisini yapıştır') : 'sk-ant-…';
+  return s;
+}
+function openAiSetup() {
+  closePanels(); closeWordCard();
+  $('#aiMsg').textContent = ''; $('#aiKey').value = '';
+  aiModal.hidden = false;
+  refreshAiStatus();
+  $('#aiKey').focus();
+}
+if (host) {
+  document.querySelectorAll('.desktop-only').forEach((n) => { n.hidden = false; });
+  $('#dropDesc').textContent = 'Dosyayı buraya sürükle ya da bilgisayarından seç. Açtığın kitaplar bu bilgisayarda kitaplığına kopyalanır.';
+  $('#aiOpen').addEventListener('click', openAiSetup);
+  $('#aiCloseBtn').addEventListener('click', () => { aiModal.hidden = true; });
+  aiModal.addEventListener('click', (e) => { if (e.target === aiModal) aiModal.hidden = true; });
+  $('#aiModel').addEventListener('click', async (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    await host.api.ai_set_model(b.dataset.v);
+    refreshAiStatus();
+  });
+  $('#aiSave').addEventListener('click', async () => {
+    const key = $('#aiKey').value.trim();
+    const msg = $('#aiMsg');
+    if (key) await host.api.ai_set_key(key);
+    const s = await refreshAiStatus();
+    if (!s.configured) { msg.textContent = 'Önce bir API anahtarı yapıştır.'; return; }
+    msg.textContent = 'Claude’a kısa bir deneme sorusu gönderiliyor…';
+    const res = await host.api.ask('Reply with just the word: OK', 'low');
+    if (res && res.ok) {
+      msg.textContent = 'Bağlantı çalışıyor. Artık kelimelere dokununca anlamları gelecek.';
+      ai.sample = desktopSample(); ai.off = false; refreshAiUi();
+      $('#aiKey').value = '';
+    } else {
+      msg.textContent = aiError({ code: res && res.code, message: res && res.message }) || 'Bağlantı kurulamadı.';
+      if (res && res.code === 'no_key') ai.off = false;
+    }
+  });
+  $('#aiRemove').addEventListener('click', async () => {
+    await host.api.ai_clear_key();
+    ai.sample = null; refreshAiUi();
+    const s = await refreshAiStatus();
+    $('#aiMsg').textContent = s.configured ? 'Kayıtlı anahtar silindi; ortam değişkenindeki anahtar kullanılmaya devam ediyor.' : 'Anahtar silindi.';
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') aiModal.hidden = true; });
+  refreshAiStatus();
+}
+
+/* ================= Developer mode ================= */
+// Tap the version number 5 times (or press Ctrl+Shift+D) to turn developer mode on; then the version opens this panel.
+$('#appVer').textContent = APP_VERSION;
+let verTaps = 0, verTimer = 0;
+function devOn() { return !!store.get('devMode', false); }
+function showDevBadge() { $('#devBadge').hidden = !devOn(); }
+async function openDevPanel() {
+  const info = host ? await host.api.app_info() : { version: APP_VERSION };
+  const rows = host ? [
+    ['Sürüm', info.version], ['Program', info.exe], ['Veri klasörü', info.dataDir],
+    ['Kitap dosyaları', String(info.books)], ['Sözlük', info.dictionary || 'bulunamadı'],
+    ['Günlük', info.logFile], ['Geliştirici modu', info.devMode ? 'açık' : 'kapalı'],
+  ] : [['Sürüm', 'web (claude.ai)'], ['Kitaplar', 'bu tarayıcının hafızasında'], ['Defter', vocab.mode === 'db' ? 'claude.ai hesabında' : 'bu tarayıcıda']];
+  const dl = $('#devInfo'); dl.replaceChildren();
+  for (const [k, v] of rows) dl.append(el('dt', '', k), el('dd', '', v || '—'));
+  $('#devNote').textContent = host ? (info.devMode ? 'Geliştirici modu açık: uygulamayı kapatıp açınca sağ tık → “İncele” ile web inceleyicisi açılır. Günlük her açılışı ve hataları kaydeder.' : 'Geliştirici modu kapalı.') : 'Web sürümünde günlük ve inceleyici yok.';
+  $('#devLog').hidden = $('#devData').hidden = !host;
+  $('#devToggle').textContent = devOn() ? 'Geliştirici modunu kapat' : 'Geliştirici modunu aç';
+  $('#devPanel').hidden = false;
+}
+async function setDev(on) {
+  store.set('devMode', on);
+  if (host) await host.api.set_dev_mode(on);
+  showDevBadge();
+  toast(on ? 'Geliştirici modu açıldı' : 'Geliştirici modu kapatıldı');
+}
+$('#verBtn').addEventListener('click', async () => {
+  if (devOn()) { openDevPanel(); return; }
+  verTaps++; clearTimeout(verTimer); verTimer = setTimeout(() => { verTaps = 0; }, 1500);
+  if (verTaps >= 5) { verTaps = 0; await setDev(true); openDevPanel(); }
+  else if (verTaps >= 2) toast('Geliştirici moduna ' + (5 - verTaps) + ' dokunuş kaldı');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); openDevPanel(); }
+  if (e.key === 'Escape') $('#devPanel').hidden = true;
+});
+$('#devClose').addEventListener('click', () => { $('#devPanel').hidden = true; });
+$('#devPanel').addEventListener('click', (e) => { if (e.target === $('#devPanel')) $('#devPanel').hidden = true; });
+$('#devLog').addEventListener('click', () => host && host.api.open_path('log'));
+$('#devData').addEventListener('click', () => host && host.api.open_path('data'));
+$('#devReload').addEventListener('click', async () => { await renderShelf(); toast('Kitaplık yeniden okundu'); });
+$('#devToggle').addEventListener('click', async () => { await setDev(!devOn()); openDevPanel(); });
+showDevBadge();
+
+applyPrefs();
+updateListenBtn();
+vocab.changed();
+await renderShelf();
+if (host) {
+  // a book passed on the command line ("Open with" / double-clicked .epub)
+  const f = await host.api.initial_file();
+  if (f && f.b64) openFile(new File([b64ToBlob(f.b64, 'application/epub+zip')], f.name || 'kitap.epub'));
+}
+})();
+</script>

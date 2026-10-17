@@ -1,0 +1,5 @@
+pywebview>=6.2
+anthropic>=1.15
+keyring>=25
+pyinstaller>=6.22
+pillow>=11
