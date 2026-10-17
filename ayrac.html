@@ -361,6 +361,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .fc-result.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
 .kbd-hint { font-size: .75rem; color: var(--ink-soft); text-align: center; }
 
+.update-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 18px; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-radius: 14px; padding: 14px 18px; }
+.update-banner div { display: grid; gap: 2px; min-width: 0; }
+.update-banner span { color: var(--muted); font-size: .88rem; line-height: 1.45; }
 .app-foot { display: flex; gap: 6px; align-items: baseline; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--line); padding-top: 14px; font-variant-numeric: tabular-nums; }
 .app-foot { flex-wrap: wrap; }
 .app-foot .link-btn { color: var(--muted); text-decoration: none; }
@@ -421,6 +424,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
         <button class="btn-ghost" id="aiOpen" type="button">Claude ayarları</button>
       </div>
     </header>
+
+    <div class="update-banner" id="updateBanner" hidden role="status">
+      <div><b id="updateTitle"></b><span id="updateNotes"></span></div>
+      <button class="btn-primary" id="updateBtn" type="button">Güncelle</button>
+    </div>
 
     <section class="drop" id="dropZone" aria-labelledby="dropTitle">
       <h2 id="dropTitle">Bir EPUB dosyası aç</h2>
@@ -747,6 +755,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       <button class="btn" id="devLog" type="button">Günlüğü aç</button>
       <button class="btn" id="devData" type="button">Veri klasörünü aç</button>
       <button class="btn" id="devReload" type="button">Kitaplığı yenile</button>
+      <button class="btn" id="devUpdate" type="button">Güncellemeleri denetle</button>
       <button class="btn" id="devToggle" type="button">Geliştirici modunu kapat</button>
       <button class="btn" id="devClose" type="button">Kapat</button>
     </div>
@@ -3090,6 +3099,35 @@ $('#backupFile').addEventListener('change', async (e) => {
   toast(data.words.length + ' kelime yüklendi');
 });
 
+/* ================= Updates (desktop) ================= */
+// The app reads an update manifest ({version, setup_url, notes}); the installer points it at the project's releases folder.
+async function checkUpdate(manual) {
+  if (!host) return null;
+  const u = await host.api.check_update();
+  const banner = $('#updateBanner');
+  if (u && u.newer) {
+    $('#updateTitle').textContent = 'Yeni sürüm: Ayraç ' + u.latest + ' (şu an ' + u.current + ')';
+    $('#updateNotes').textContent = u.notes || '';
+    banner.hidden = false;
+  } else banner.hidden = true;
+  if (manual) toast(!u || !u.configured ? 'Güncelleme kaynağı ayarlanmamış.' : !u.ok ? 'Güncelleme denetlenemedi: ' + (u.message || '') : u.newer ? 'Yeni sürüm var: ' + u.latest : 'Ayraç güncel (' + u.current + ')');
+  return u;
+}
+$('#updateBtn').addEventListener('click', async () => {
+  const ok = await askConfirm('Güncelle', 'Yeni sürüm indirilip kurulacak. Ayraç kapanıp yeniden açılacak; kitapların, defterin ve ayarların korunur.', 'Güncelle');
+  if (!ok) return;
+  $('#updateBtn').disabled = true; $('#updateBtn').textContent = 'İndiriliyor…';
+  flushStats();
+  const r = await host.api.install_update();
+  if (!r || !r.ok) { $('#updateBtn').disabled = false; $('#updateBtn').textContent = 'Güncelle'; toast((r && r.message) || 'Güncellenemedi.'); }
+});
+// An .epub opened while the app is running (double-click, Birlikte aç) arrives here.
+window.ayracOpenExternal = async () => {
+  if (!host) return;
+  const f = await host.api.initial_file();
+  if (f && f.b64) openFile(new File([b64ToBlob(f.b64, 'application/epub+zip')], f.name || 'kitap.epub'));
+};
+
 /* ================= Developer mode ================= */
 // Tap the version number 5 times (or press Ctrl+Shift+D) to turn developer mode on; then the version opens this panel.
 $('#appVer').textContent = APP_VERSION;
@@ -3098,15 +3136,17 @@ function devOn() { return !!store.get('devMode', false); }
 function showDevBadge() { $('#devBadge').hidden = !devOn(); }
 async function openDevPanel() {
   const info = host ? await host.api.app_info() : { version: APP_VERSION };
+  const upd = host ? await host.api.check_update() : null;
   const rows = host ? [
     ['Sürüm', info.version], ['Program', info.exe], ['Veri klasörü', info.dataDir],
     ['Kitap dosyaları', String(info.books)], ['Sözlük', info.dictionary || 'bulunamadı'],
     ['Günlük', info.logFile], ['Geliştirici modu', info.devMode ? 'açık' : 'kapalı'],
+    ['Güncelleme kaynağı', upd && upd.configured ? upd.source + (upd.ok ? ' (en son: ' + upd.latest + ')' : ' (okunamadı)') : 'ayarlanmamış'],
   ] : [['Sürüm', 'web (claude.ai)'], ['Kitaplar', 'bu tarayıcının hafızasında'], ['Defter', vocab.mode === 'db' ? 'claude.ai hesabında' : 'bu tarayıcıda']];
   const dl = $('#devInfo'); dl.replaceChildren();
   for (const [k, v] of rows) dl.append(el('dt', '', k), el('dd', '', v || '—'));
   $('#devNote').textContent = host ? (info.devMode ? 'Geliştirici modu açık: uygulamayı kapatıp açınca sağ tık → “İncele” ile web inceleyicisi açılır. Günlük her açılışı ve hataları kaydeder.' : 'Geliştirici modu kapalı.') : 'Web sürümünde günlük ve inceleyici yok.';
-  $('#devLog').hidden = $('#devData').hidden = !host;
+  $('#devLog').hidden = $('#devData').hidden = $('#devUpdate').hidden = !host;
   $('#devToggle').textContent = devOn() ? 'Geliştirici modunu kapat' : 'Geliştirici modunu aç';
   $('#devPanel').hidden = false;
 }
@@ -3132,6 +3172,7 @@ $('#devLog').addEventListener('click', () => host && host.api.open_path('log'));
 $('#devData').addEventListener('click', () => host && host.api.open_path('data'));
 $('#devReload').addEventListener('click', async () => { await renderShelf(); toast('Kitaplık yeniden okundu'); });
 $('#devToggle').addEventListener('click', async () => { await setDev(!devOn()); openDevPanel(); });
+$('#devUpdate').addEventListener('click', () => checkUpdate(true));
 showDevBadge();
 
 applyPrefs();
@@ -3142,6 +3183,7 @@ if (host) {
   // a book passed on the command line ("Open with" / double-clicked .epub)
   const f = await host.api.initial_file();
   if (f && f.b64) openFile(new File([b64ToBlob(f.b64, 'application/epub+zip')], f.name || 'kitap.epub'));
+  setTimeout(() => checkUpdate(false).catch(() => {}), 2500);
 }
 })();
 </script>

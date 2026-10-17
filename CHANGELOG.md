@@ -2,6 +2,13 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 1.9.0 — 2026-10-17
+- Kurulum programı: `desktop\releases\Ayrac-Setup-<sürüm>.exe` (Inno Setup, yönetici izni gerekmez). Başlat menüsü ve masaüstü kısayolu, "Program ekle/kaldır" kaydı, kaldırınca kitaplar ve defter silinmez.
+- .epub dosyaları için "Birlikte aç → Ayraç".
+- Ayraç açıkken bir .epub açılırsa kitap açık pencerede açılır (önceden kayboluyordu).
+- Güncelleme denetimi: açılışta yeni sürüm varsa kitaplığın üstünde "Güncelle" çıkar; indirip kurar ve yeniden açar. Kaynak, kurulumun yazdığı `releases\latest.json` (geliştirici panelinden görülür).
+- Düzeltme ("kitaplar gitti"): Ayraç, paketlenmiş bir uygulamanın içinden (örn. Claude'un terminali) başlatıldığında Windows veri klasörünü o uygulamanın gizli kopyasına yönlendiriyordu; iki ayrı kitaplık oluşuyordu. Ayraç artık bunu fark edip kendini paketin dışında yeniden başlatır. İki kitaplık birleştirildi (yedekler: `Belgeler\Ayrac-veri`).
+
 ## 1.8.0 — 2026-10-17
 - Yeni tekrar sistemi (Anki tarzı): Tekrar / Zor / İyi / Kolay; her düğmede sıradaki tekrarın ne zaman olacağı yazar. Unutulan kelime en başa dönmez, aralığı yarıya iner ve 10 dk sonra yeniden sorulur. Eski kutu (Leitner) bilgisi otomatik çevrilir. Klavye: 1–4, ←/→, Enter.
 - Günlük yeni kelime sınırı (Ayarlar → Günde yeni kelime: 10 / 20 / 40 / sınırsız).

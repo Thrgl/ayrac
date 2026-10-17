@@ -24,6 +24,7 @@ Ayrac/
     ├── ayrac_app.py      Masaüstü uygulaması: pencere (pywebview), dosya kaydı, sözlük, Claude API, günlük
     ├── build.ps1         Derleme betiği → dist\Ayrac.exe ve releases\Ayrac-<sürüm>.exe
     ├── build_dict.py     Çevrimdışı sözlüğü (SQLite) Wiktionary verisinden üretir
+    ├── installer.iss     Kurulum programı (Inno Setup 6; %LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe)
     ├── make_icon.py      Uygulama simgesini çizer
     ├── requirements.txt  Python bağımlılıkları
     ├── VERSION           Sürüm numarası (tek kaynak)
@@ -50,6 +51,8 @@ Ayrac/
 | `initial_file` | Komut satırından verilen .epub (Birlikte aç) |
 | `log`, `app_info`, `set_dev_mode`, `open_path` | Geliştirici modu ve günlük |
 | `save_text_file` | Sayfanın ürettiği metni (defter CSV'si) kaydetme penceresiyle diske yazar |
+| `open_external` | Ayraç açıkken açılan `.epub`'ı pencereye getirir (`window.ayracOpenExternal`) |
+| `check_update`, `set_update_source`, `install_update` | Güncelleme manifestini okur; yeni kurulumu indirip paketin dışında çalıştırır |
 | `backup_export`, `backup_import` | Yedek: tek ZIP (`ayrac-backup.json`, `data.json`, `books/`). Geri yüklemeden önce mevcut hâl `%APPDATA%\Ayrac\backups`'a yedeklenir |
 
 Sayfadaki `store` (ayarlar) ve `books` (kitaplık) nesneleri bu ikisini soyutlar; özellik kodu hangi sürümde çalıştığını bilmez. Masaüstünde Claude çağrıları da web'deki `sample` arayüzüyle aynı biçimde sarılır (`desktopSample()`).
@@ -117,22 +120,23 @@ $git = "$env:LOCALAPPDATA\Programs\MinGit\cmd\git.exe"
    - yeni özellik: `1.5.0 → 1.6.0`
 3. `CHANGELOG.md`'nin en üstüne yeni sürümü ve değişiklikleri yaz.
 4. Derle: `powershell -ExecutionPolicy Bypass -File desktop\build.ps1`
-5. Kurulu uygulamayı güncelle (Ayraç açıksa kapanır; kitaplar ve defter etkilenmez):
+5. Kur: `build.ps1` `desktop\releases\Ayrac-Setup-<sürüm>.exe` ve `releases\latest.json` üretir. İki yol:
+   - Ayraç'ı aç: açılışta yeni sürümü görür, kitaplığın üstünde **Güncelle** çıkar (indirir, kurar, yeniden açar).
+   - Ya da kurulum dosyasını çift tıkla (Ayraç açıksa kurulum kapatır; kitaplar ve defter etkilenmez).
+
+   Claude'un terminalinden kurarken kurulumu **paketin dışında** başlat (aşağıdaki nota bak):
 
 ```powershell
-$dest = "$env:LOCALAPPDATA\Programs\Ayrac"
-Get-Process Ayrac -EA SilentlyContinue | % { [void]$_.CloseMainWindow() }
-# Ayrac.exe iki süreçtir (PyInstaller); ikisi de kapanana kadar bekle, gerekirse zorla kapat
-foreach ($i in 1..20) { if (-not (Get-Process Ayrac -EA SilentlyContinue)) { break }; Start-Sleep 1
-  if ($i -eq 8) { Get-Process Ayrac -EA SilentlyContinue | Stop-Process -Force } }
-foreach ($i in 1..10) { try { Copy-Item desktop\dist\Ayrac.exe $dest -Force -ErrorAction Stop; break } catch { Start-Sleep 1 } }
-Copy-Item desktop\dist\dict\en-tr.sqlite "$dest\dict" -Force   # sadece sözlük değiştiyse
-Start-Process "$([Environment]::GetFolderPath('Desktop'))\Ayraç.lnk"
+$setup = (Resolve-Path desktop\releases\Ayrac-Setup-1.9.0.exe).Path
+Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+  CommandLine = "`"$setup`" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS=`"desktopicon,epubassoc`"" }
 ```
 
 6. Web sürümünü de güncellemek için `ayrac.html` claude.ai'de aynı adrese yeniden yayımlanır (Claude'a "web sürümünü de güncelle" demek yeterli).
 
-**Eski sürüme dönmek:** `desktop\releases\Ayrac-<sürüm>.exe` dosyasını `%LOCALAPPDATA%\Programs\Ayrac\Ayrac.exe` üzerine kopyala.
+**Eski sürüme dönmek:** `desktop\releases\Ayrac-Setup-<sürüm>.exe`'yi çalıştır (1.9.0 öncesi için `Ayrac-<sürüm>.exe`'yi `%LOCALAPPDATA%\Programs\Ayrac\Ayrac.exe` üzerine kopyala).
+
+**Güncelleme kaynağı:** kurulum, `.exe`'nin yanına `update-source.txt` yazar (bu bilgisayarda `releases\latest.json`'ın `file:///` adresi). Biçim: `{"version": "1.9.1", "setup_url": "Ayrac-Setup-1.9.1.exe", "notes": "..."}` — `setup_url` manifeste göre görelidir, yani aynı yapı ileride bir web adresinde (ör. GitHub Releases) de çalışır; ayarlardaki `updateUrl` bu dosyayı geçersiz kılar.
 
 ---
 
@@ -205,7 +209,12 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 ## Bilinen notlar
 
-- **Tek kopya:** Aynı anda iki Ayraç penceresi aynı WebView2 veri klasöründe birbirini kapatıyordu; ikinci açılış artık açık pencereyi öne getirip çıkar.
+- **Claude'un terminali bir paket kabının içinde (önemli):** Claude masaüstü uygulaması MSIX paketi olarak çalışır; terminalinden başlatılan programların `AppData\Roaming` ve `AppData\Local` yazmaları `%LOCALAPPDATA%\Packages\Claude_…\LocalCache\…` altına yönlendirilir (`Belgeler` ve `AppData\Local\Programs` yönlendirilmez). Bu yüzden 1.9.0'dan önce Claude'dan başlatılan Ayraç, masaüstü kısayolunun görmediği ayrı bir kitaplık kullandı. Kurallar:
+  - Ayraç 1.9.0+ bunu kendisi fark eder (`data_dir_is_redirected`) ve kendini WMI ile paketin dışında yeniden başlatır.
+  - Kurulum, test ve "gerçek" veriye erişim için programları WMI ile başlat: `Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = '...' }`. Bu terminalden `%APPDATA%\Ayrac`'ı okumak/yazmak **gizli kopyayı** gösterir; gerçeğini görmek için dosyaları WMI ile başlatılan bir PowerShell ile `Belgeler`'e kopyala.
+  - Kayıt defteri (HKCU) yazmaları da yönlendirilebilir; kurulumu da WMI ile çalıştır.
+- **Uygulamanın başlattığı programlar:** PyInstaller'ın tek dosyalı `.exe`'si alt süreçleri kendi grubunda tutar; güncelleme kurulumu bu yüzden de WMI ile başlatılır (`start_outside_container`).
+- **Tek kopya:** Aynı anda iki Ayraç penceresi aynı WebView2 veri klasöründe birbirini kapatıyordu; ikinci açılış artık açık pencereyi öne getirir ve kendisine verilen `.epub`'ı adlandırılmış boru (`\\.\pipe\Ayrac-<kullanıcı>`, `%APPDATA%\Ayrac\.pipekey` ile korunur) üzerinden açık pencereye iletir.
 - **pywebview ayarları:** `text_select=True` (yoksa metin seçilemez), `private_mode=False` + `storage_path=%APPDATA%\Ayrac\webview`, dış bağlantılar sistem tarayıcısında açılır.
 - **Web sürümünün kitaplığı** tarayıcıya özeldir; Claude uygulamasının veri klasörü değişince sıfırlanabilir. Kalıcı kitaplık masaüstü sürümündedir.
 - **Sesli okuma** Windows'un İngilizce seslerini kullanır (Edge/WebView2 `speechSynthesis`).
@@ -289,9 +298,9 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 | Ne | Açıklama | Emek |
 |---|---|---|
-| **Kurulum programı** | Inno Setup ile `Ayrac-Setup.exe`: Program Files / kullanıcı klasörüne kurulum, kısayollar, `.epub` dosya ilişkilendirmesi ("Birlikte aç" köprüsü `initial_file` hazır), kaldırma. Şu anki elle kopyalama adımı ortadan kalkar. | M |
-| **Güncelleme kontrolü** | Açılışta yeni sürüm var mı diye bakıp (GitHub Releases vb.) indirip kuran küçük bir güncelleyici. | M |
-| **İkinci açılışta dosyayı iletmek** | `focus_running_instance` ikinci açılışı kapatıyor ama ona verilen `.epub` kaybolur. Dosya yolu açık pencereye iletilmeli (adlandırılmış kanal ya da `WM_COPYDATA`). | S |
+| ✅ 1.9.0 — **Kurulum programı** | Inno Setup ile `Ayrac-Setup.exe`: Program Files / kullanıcı klasörüne kurulum, kısayollar, `.epub` dosya ilişkilendirmesi ("Birlikte aç" köprüsü `initial_file` hazır), kaldırma. Şu anki elle kopyalama adımı ortadan kalkar. | M |
+| ✅ 1.9.0 — **Güncelleme kontrolü** | Açılışta yeni sürüm var mı diye bakıp (GitHub Releases vb.) indirip kuran küçük bir güncelleyici. | M |
+| ✅ 1.9.0 — **İkinci açılışta dosyayı iletmek** | `focus_running_instance` ikinci açılışı kapatıyor ama ona verilen `.epub` kaybolur. Dosya yolu açık pencereye iletilmeli (adlandırılmış kanal ya da `WM_COPYDATA`). | S |
 | **Kod imzalama** | İmzasız `.exe` SmartScreen uyarısı verir; başkalarına dağıtılacaksa gerekli. | S (ücretli) |
 
 ### Önerilen sıra
