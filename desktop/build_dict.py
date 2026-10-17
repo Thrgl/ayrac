@@ -17,7 +17,7 @@ import sys
 import time
 import urllib.request
 
-from wordfreq import top_n_list
+from wordfreq import top_n_list, zipf_frequency
 
 EN_URL = "https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz"  # English words only, ~520 MB
 TR_URL = "https://kaikki.org/dictionary/downloads/tr/tr-extract.jsonl.gz"
@@ -184,11 +184,15 @@ def main(out_path):
 
     con = sqlite3.connect(out_path)
     con.executescript("""
-        DROP TABLE IF EXISTS entries; DROP TABLE IF EXISTS forms; DROP TABLE IF EXISTS meta;
+        DROP TABLE IF EXISTS entries; DROP TABLE IF EXISTS forms; DROP TABLE IF EXISTS meta; DROP TABLE IF EXISTS freq;
         CREATE TABLE entries (word TEXT PRIMARY KEY, data TEXT NOT NULL) WITHOUT ROWID;
         CREATE TABLE forms (form TEXT PRIMARY KEY, lemma TEXT NOT NULL, note TEXT) WITHOUT ROWID;
         CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT);
+        -- Zipf frequency (wordfreq): 7 = "the", 3 = about once per million words. The app turns it into a CEFR estimate.
+        CREATE TABLE freq (word TEXT PRIMARY KEY, zipf REAL NOT NULL) WITHOUT ROWID;
     """)
+    con.executemany("INSERT INTO freq VALUES (?, ?)",
+                    ((w, z) for w in entries for z in [zipf_frequency(w, "en")] if z > 0))
     con.executemany("INSERT INTO entries VALUES (?, ?)",
                     ((w, json.dumps(v, ensure_ascii=False, separators=(",", ":"))) for w, v in entries.items()))
     con.executemany("INSERT INTO forms VALUES (?, ?, ?)",

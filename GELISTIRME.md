@@ -49,6 +49,7 @@ Ayrac/
 | `ai_status`, `ai_set_key`, `ai_clear_key`, `ai_set_model`, `ask` | İsteğe bağlı Claude (Anthropic API). Anahtar Windows Kimlik Bilgileri Yöneticisi'nde |
 | `initial_file` | Komut satırından verilen .epub (Birlikte aç) |
 | `log`, `app_info`, `set_dev_mode`, `open_path` | Geliştirici modu ve günlük |
+| `save_text_file` | Sayfanın ürettiği metni (defter CSV'si) kaydetme penceresiyle diske yazar |
 | `backup_export`, `backup_import` | Yedek: tek ZIP (`ayrac-backup.json`, `data.json`, `books/`). Geri yüklemeden önce mevcut hâl `%APPDATA%\Ayrac\backups`'a yedeklenir |
 
 Sayfadaki `store` (ayarlar) ve `books` (kitaplık) nesneleri bu ikisini soyutlar; özellik kodu hangi sürümde çalıştığını bilmez. Masaüstünde Claude çağrıları da web'deki `sample` arayüzüyle aynı biçimde sarılır (`desktopSample()`).
@@ -177,7 +178,7 @@ Kitaplığın altındaki **sürüm numarasına 5 kez dokun** (ya da **Ctrl+Shift
 | İngilizce Wiktionary (İngilizce kelimeler) | https://kaikki.org/dictionary/English/kaikki.org-dictionary-English.jsonl.gz | ~499 MB |
 | Türkçe Vikisözlük | https://kaikki.org/dictionary/downloads/tr/tr-extract.jsonl.gz | ~42 MB |
 
-Tablolar: `entries(word, data)` — her kelime için JSON dizisi (`p` tür, `i` [ABD, İngiliz] IPA, `d` İngilizce tanımlar, `t` [anlam, Türkçe karşılıklar] grupları, `k` Türkçe tanımlar); `forms(form, lemma, note)` — çekimli biçimler; `meta`. Hangi kelimeler alınır: en sık 60.000 İngilizce kelime (wordfreq) + Türkçe karşılığı ya da Türkçe tanımı olan her kelime/kalıp.
+Tablolar: `entries(word, data)` — her kelime için JSON dizisi (`p` tür, `i` [ABD, İngiliz] IPA, `d` İngilizce tanımlar, `t` [anlam, Türkçe karşılıklar] grupları, `k` Türkçe tanımlar); `forms(form, lemma, note)` — çekimli biçimler; `freq(word, zipf)` — wordfreq sıklığı (uygulama bundan kaba CEFR tahmini çıkarır: `cefr_from_zipf`); `meta`. Hangi kelimeler alınır: en sık 60.000 İngilizce kelime (wordfreq) + Türkçe karşılığı ya da Türkçe tanımı olan her kelime/kalıp.
 
 ```powershell
 # İndirip oluştur (yarıda kalırsa kaldığı yerden devam eder):
@@ -239,7 +240,7 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 | Ne | Açıklama | Emek |
 |---|---|---|
-| **Kitap içinde arama** | Tüm bölümlerde kelime/ifade arama, sonuç listesi ve sonuca atlama. Bir kelimenin kitapta başka nerede geçtiğini görmek öğrenme için de faydalı ("Bu kelime kitapta 14 kez geçiyor"). | M |
+| ✅ 1.7.0 — **Kitap içinde arama** | Tüm bölümlerde kelime/ifade arama, sonuç listesi ve sonuca atlama. Bir kelimenin kitapta başka nerede geçtiğini görmek öğrenme için de faydalı ("Bu kelime kitapta 14 kez geçiyor"). | M |
 | **Vurgulama ve not** | Cümle/paragraf seçip renkle işaretleme, not ekleme; İçindekiler çekmecesinde "Notlarım" sekmesi. | M |
 | **Yer imleri** | Kitap içinde birden çok yer imi (şu an sadece "kaldığın yer" var). | S |
 | **Kalan süre** | Alt çubukta "Bölümün bitmesine ~6 dk" (okuma hızı kullanıcının kendi geçmişinden hesaplanır). | S |
@@ -254,8 +255,8 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 |---|---|---|
 | **Daha iyi aralıklı tekrar** | Şu an 6 kutulu Leitner, iki düğme (`INTERVAL_DAYS = [0,0,1,3,7,16,40]`). "Zor / İyi / Kolay" üçlüsü ve FSRS benzeri bir algoritma, unutulan kelimeyi 1. kutuya atmak yerine bir-iki kutu geri almak daha verimli. Günlük yeni kelime / tekrar sınırı da eklenmeli. | M |
 | **Ters yön ve yazma kartları** | Şu an sadece İngilizce → Türkçe. Türkçe → İngilizce, boşluk doldurma (kitaptaki cümlede kelime gizli) ve "dinle, yaz" kartları kalıcı öğrenmeyi artırır. | M |
-| **Anki / CSV dışa aktarma** | Defteri `kelime; anlam; cümle; IPA` olarak CSV ya da Anki paketi (`.apkg`) yapmak. Telefonda Anki kullananlar için Android uygulaması bitene kadar köprü olur. | S |
-| **Seviye etiketi (CEFR) sözlükten** | Masaüstünde sözlük modu `cefr: ''` döndürüyor; etiket sadece Claude'dan geliyor. `build_dict.py` zaten `wordfreq` kullanıyor: Zipf sıklığından kabaca A1–C2 tahmini `entries`'e yazılabilir. | S |
+| ✅ 1.7.0 — **Anki / CSV dışa aktarma** | Defteri `kelime; anlam; cümle; IPA` olarak CSV ya da Anki paketi (`.apkg`) yapmak. Telefonda Anki kullananlar için Android uygulaması bitene kadar köprü olur. | S |
+| ✅ 1.7.0 — **Seviye etiketi (CEFR) sözlükten** | Masaüstünde sözlük modu `cefr: ''` döndürüyor; etiket sadece Claude'dan geliyor. `build_dict.py` zaten `wordfreq` kullanıyor: Zipf sıklığından kabaca A1–C2 tahmini `entries`'e yazılabilir. | S |
 | **Kitabın zorluğu** | Kitap eklenince "kelimelerin %94'ü ilk 3000 kelimede → B1 için uygun" gibi bir özet; kitaplıkta kapak altında seviye rozeti. | M |
 | **Bölüm öncesi kelime listesi** | Bölüme başlamadan önce, kullanıcının seviyesine göre bilinmesi muhtemel olmayan 10–15 kelimeyi gösterip tek dokunuşla deftere ekleme. | M |
 | **Bilinen kelimeler** | "Bunu biliyorum" işareti: o kelime bir daha toplu listelerde ve zorluk hesabında bilinmeyen sayılmaz. | S |

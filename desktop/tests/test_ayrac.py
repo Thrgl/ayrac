@@ -99,6 +99,18 @@ def test_usage_label_is_not_a_definition(d):
                 assert not (k.startswith("(") and k.rstrip(".").endswith(")"))
 
 
+@pytest.mark.parametrize("word, expected", [("the", "A1"), ("travel", "A2"), ("impressed", "B1"), ("charmer", "C2")])
+def test_cefr_estimate(d, word, expected):
+    res = d.lookup(word)
+    assert res["cefr"] == expected, (word, res.get("zipf"))
+
+
+def test_cefr_scale():
+    import ayrac_app
+    assert [ayrac_app.cefr_from_zipf(z) for z in (7, 5, 4.5, 4, 3.5, 2)] == ["A1", "A2", "B1", "B2", "C1", "C2"]
+    assert ayrac_app.cefr_from_zipf(None) == ""
+
+
 # ---------- backup ----------
 
 def add_book(app, api, book_id="id:test-book"):
