@@ -8,6 +8,7 @@ The dictionary tests need en-tr.sqlite (built by build_dict.py); set AYRAC_DICT 
 import importlib
 import json
 import os
+import shutil
 import sys
 import zipfile
 from pathlib import Path
@@ -177,6 +178,30 @@ def test_catalog_download_takes_only_a_book_number(app, book_id):
 def test_catalog_fetch_only_from_gutenberg(app, url):
     with pytest.raises(ValueError):
         app.Api(None)._catalog_fetch(url, 1000)
+
+
+def test_voices_are_listed_and_unknown_ones_refused(app):
+    api = app.Api(None)
+    ids = [v["id"] for v in api.voice_status()["voices"]]
+    assert ids == ["lessac", "ryan", "alba", "northern"]
+    assert api.voice_install("../../evil")["ok"] is False
+    assert api.voice_speak("lessac", "Hello.")["ok"] is False      # not installed yet
+    assert api.voice_speak("nope", "Hello.")["ok"] is False
+
+
+def test_voice_speaks_when_installed(app, tmp_path):
+    """Needs a Piper voice already unpacked in %TEMP%/ayrac-build/voices (skipped otherwise)."""
+    src = Path(os.environ.get("TEMP", "")) / "ayrac-build" / "voices" / "vits-piper-en_US-lessac-medium"
+    if not (src / "tokens.txt").exists():
+        pytest.skip("Piper voice not downloaded")
+    pytest.importorskip("sherpa_onnx")
+    shutil.copytree(src, app.VOICES_DIR / src.name)
+    api = app.Api(None)
+    r = api.voice_speak("lessac", "Hello there.", 1.0)
+    assert r["ok"] and r["seconds"] > 0.3
+    import urllib.request
+    with urllib.request.urlopen(r["url"]) as resp:
+        assert resp.headers["Content-Type"] == "audio/wav" and resp.read(4) == b"RIFF"
 
 
 def test_restore_rejects_other_zips(app, tmp_path):

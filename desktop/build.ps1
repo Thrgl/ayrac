@@ -41,7 +41,7 @@ try {
   if ($Run) { & $py ayrac_app.py; return }
   & $py -m PyInstaller --noconfirm --clean --onefile --windowed --name Ayrac `
       --icon (Join-Path $src 'ayrac.ico') --add-data "$src\web;web" --add-data "$src\ayrac.ico;." --add-data "$src\VERSION;." `
-      --hidden-import keyring.backends.Windows `
+      --hidden-import keyring.backends.Windows --collect-all sherpa_onnx `
       --distpath (Join-Path $work 'dist') --workpath (Join-Path $work 'build') --specpath $work `
       ayrac_app.py
   if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed ($LASTEXITCODE)" }

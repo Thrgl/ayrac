@@ -209,6 +209,17 @@ Kitaplığın altındaki **sürüm numarasına 5 kez dokun** (ya da **Ctrl+Shift
 
 ---
 
+## Yapay zekâ sesi (2.7.0+)
+
+Sesli okuma için cihazda çalışan sinir ağı sesleri: **Piper** (VITS) modelleri, **sherpa-onnx** 1.13.8 ile (Apache-2.0). Dört ses, aynı listede iki tarafta: `ayrac_app.VOICES` ve `NeuralVoice.VOICES` — `lessac`, `ryan` (en-US), `alba`, `northern` (en-GB). Ses dosyaları k2-fsa/sherpa-onnx'in `tts-models` sürümünden, kullanıcı "İndir"e basınca bir kez indirilir: masaüstünde `%APPDATA%\Ayrac\voices`, telefonda `files/Ayrac/voices`. Önce geçici klasöre açılır, bitince yerine taşınır (yarım kurulum "kurulu" sayılmaz).
+
+- **Masaüstü:** `Voices` sınıfı; `voice_speak` bir cümleyi WAV yapar, yerel kitap sunucusu `/<token>/tts/<id>` adresinden verir, sayfa `Audio` ile çalar. Sayfa sonraki iki cümleyi önceden ister (`prefetchNext`). Paket: `build.ps1` `--collect-all sherpa_onnx` (exe ~+10 MB). Paketlenmiş motoru denemek: `Ayrac.exe --voice-selftest <ses klasörü> <çıktı.txt>`.
+- **Android:** `NeuralVoice` cümleyi işçi iş parçacığında üretir, `AudioTrack` ile çalar (ekran kapalıyken de); `Speech` sistem sesi ile bunu seçer (`voice_select`). Sonraki cümle `AyracNative.prefetch` ile önceden. Kütüphane `android\app\libs\sherpa-onnx-static-link-onnxruntime-1.13.8.aar` (git'te yok, `android\build.ps1` indirir); APK'ya yalnız `arm64-v8a` girer. Ses arşivleri için `commons-compress` (bzip2 + tar).
+- **Neden Piper:** bu bilgisayarda 2 çekirdekle gerçek zamanın ~21 katı hızlı (telefonda da cümlelere yetişir). Kokoro (`kokoro-int8-en-v0_19`) daha doğal ama 8 çekirdekte bile ~1 katı; Kitten nano ~4 katı. Piper'ın fp16 sürümü bu motorla açılmıyor, int8 sürümü daha yavaş ve daha kötü.
+- **Lisans notu:** seslerin eğitim verisi lisansları farklı (ör. lessac: Blizzard 2013, araştırma/kişisel kullanım). Kişisel kullanımda sorun yok; uygulama ticari dağıtılacaksa her sesin MODEL_CARD'ındaki lisansa bakılmalı.
+
+---
+
 ## Çevrimdışı sözlük
 
 `build_dict.py` iki Wiktionary dökümünden `en-tr.sqlite` üretir (kaikki.org / wiktextract, **CC BY-SA 4.0**):

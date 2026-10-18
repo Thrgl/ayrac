@@ -7,6 +7,7 @@ and Claude requests go to the Anthropic API with the key the user saved (Windows
 
 import base64
 import hashlib
+import io
 import json
 import os
 import re
@@ -15,13 +16,16 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tarfile
 import tempfile
 import threading
 import time
 import traceback
 import urllib.parse
 import urllib.request
+import wave
 import zipfile
+from array import array
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from multiprocessing import AuthenticationError
 from multiprocessing.connection import Client, Listener
@@ -43,6 +47,15 @@ MODELS = {"opus": "claude-opus-5-5", "haiku": "claude-haiku-5-5"}
 # Free books: Project Gutenberg's catalogue feed; the app fetches only from these hosts.
 CATALOG_FEED = "https://www.gutenberg.org/ebooks/search.opds/"
 CATALOG_HOSTS = {"www.gutenberg.org", "gutenberg.org"}
+# Neural reading voices (Piper medium, from the sherpa-onnx model releases): id -> (folder, label, accent, MB)
+VOICES = {
+    "lessac": ("vits-piper-en_US-lessac-medium", "Lessac · kadın", "en-US", 64),
+    "ryan": ("vits-piper-en_US-ryan-medium", "Ryan · erkek", "en-US", 64),
+    "alba": ("vits-piper-en_GB-alba-medium", "Alba · kadın", "en-GB", 64),
+    "northern": ("vits-piper-en_GB-northern_english_male-medium", "Northern · erkek", "en-GB", 64),
+}
+VOICE_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/{}.tar.bz2"
+VOICES_DIR = DATA_DIR / "voices"
 
 
 def resource(rel: str) -> Path:
@@ -270,9 +283,12 @@ class BookServer:
     and only with the random token of this run."""
 
     TYPES = {"book": (".epub", "application/epub+zip"), "cover": (".cover", None)}
+    AUDIO_KEEP = 16  # spoken sentences kept in memory (the current one and the prefetched next ones)
 
     def __init__(self):
         self.token = secrets.token_urlsafe(18)
+        self.audio = {}  # stem -> WAV bytes, newest last
+        self._audio_lock = threading.Lock()
         server = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -281,6 +297,20 @@ class BookServer:
 
             def do_GET(self):
                 parts = self.path.split("?")[0].strip("/").split("/")
+                if len(parts) == 3 and parts[0] == server.token and parts[1] == "tts":
+                    with server._audio_lock:
+                        data = server.audio.get(parts[2])
+                    if data is None:
+                        self.send_error(404)
+                        return
+                    self.send_response(200)
+                    self.send_header("Content-Type", "audio/wav")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
                 if len(parts) != 3 or parts[0] != server.token or parts[1] not in server.TYPES \
                         or not re.fullmatch(r"[0-9a-f]{20}", parts[2]):
                     self.send_error(404)
@@ -310,6 +340,104 @@ class BookServer:
 
     def url(self, kind: str, stem: str) -> str:
         return f"http://127.0.0.1:{self.port}/{self.token}/{kind}/{stem}"
+
+    def add_audio(self, wav: bytes) -> str:
+        stem = secrets.token_hex(8)
+        with self._audio_lock:
+            self.audio[stem] = wav
+            while len(self.audio) > self.AUDIO_KEEP:
+                self.audio.pop(next(iter(self.audio)))
+        return self.url("tts", stem)
+
+
+class Voices:
+    """Neural reading voices (Piper, run by sherpa-onnx): downloaded once into %APPDATA%/Ayrac/voices,
+    then everything is on this computer. Piper is used because it is ~20x faster than real time even on
+    two cores, so reading aloud never waits; Kokoro sounds more natural but only just keeps up."""
+
+    def __init__(self):
+        self._tts = {}
+        self._lock = threading.Lock()
+        self.progress = {}  # voice id -> {"state": downloading|extracting|ready|error, "done", "total", "message"}
+
+    @staticmethod
+    def folder(vid):
+        return VOICES_DIR / VOICES[vid][0]
+
+    def installed(self, vid):
+        d = self.folder(vid)
+        return (d / "tokens.txt").is_file() and any(d.glob("*.onnx"))
+
+    def status(self):
+        return [{"id": vid, "label": v[1], "accent": v[2], "mb": v[3], "installed": self.installed(vid),
+                 **({"progress": self.progress[vid]} if vid in self.progress else {})} for vid, v in VOICES.items()]
+
+    def install(self, vid):
+        if vid not in VOICES:
+            return False
+        if self.installed(vid) or self.progress.get(vid, {}).get("state") in ("downloading", "extracting"):
+            return True
+        self.progress[vid] = {"state": "downloading", "done": 0, "total": VOICES[vid][3] * 1024 * 1024}
+        threading.Thread(target=self._download, args=(vid,), name=f"voice-{vid}", daemon=True).start()
+        return True
+
+    def _download(self, vid):
+        name = VOICES[vid][0]
+        part = VOICES_DIR / (name + ".tar.bz2.part")
+        p = self.progress[vid]
+        try:
+            VOICES_DIR.mkdir(parents=True, exist_ok=True)
+            req = urllib.request.Request(VOICE_URL.format(name), headers={"User-Agent": f"Ayrac/{app_version()}"})
+            with urllib.request.urlopen(req, timeout=60) as r, part.open("wb") as f:
+                p["total"] = int(r.headers.get("Content-Length") or p["total"])
+                while chunk := r.read(1 << 16):
+                    f.write(chunk)
+                    p["done"] += len(chunk)
+            p["state"] = "extracting"
+            # Unpack beside the final place and move it in when complete, so a half-unpacked voice never counts.
+            tmp = VOICES_DIR / f".unpack-{name}"
+            shutil.rmtree(tmp, ignore_errors=True)
+            with tarfile.open(part, "r:bz2") as t:
+                t.extractall(tmp, filter="data")  # the archive holds one folder: <name>/
+            shutil.rmtree(self.folder(vid), ignore_errors=True)
+            os.replace(tmp / name, self.folder(vid))
+            shutil.rmtree(tmp, ignore_errors=True)
+            part.unlink(missing_ok=True)
+            p["state"] = "ready" if self.installed(vid) else "error"
+            log("info", f"voice {vid} installed")
+        except Exception as e:  # noqa: BLE001 - shown to the user, logged
+            p.update(state="error", message=str(e))
+            part.unlink(missing_ok=True)
+            log("error", f"voice {vid}: {e!r}")
+
+    def remove(self, vid):
+        with self._lock:
+            self._tts.pop(vid, None)
+        shutil.rmtree(self.folder(vid), ignore_errors=True)
+        self.progress.pop(vid, None)
+
+    def _engine(self, vid):
+        with self._lock:
+            if vid not in self._tts:
+                import sherpa_onnx  # only when a neural voice is used
+                d = self.folder(vid)
+                model = sherpa_onnx.OfflineTtsModelConfig(num_threads=min(4, os.cpu_count() or 2))
+                model.vits = sherpa_onnx.OfflineTtsVitsModelConfig(
+                    model=str(next(d.glob("*.onnx"))), tokens=str(d / "tokens.txt"), data_dir=str(d / "espeak-ng-data"))
+                self._tts[vid] = sherpa_onnx.OfflineTts(sherpa_onnx.OfflineTtsConfig(model=model, max_num_sentences=1))
+            return self._tts[vid]
+
+    def wav(self, vid, text, speed):
+        """Speak text with voice vid; returns (WAV bytes, seconds)."""
+        audio = self._engine(vid).generate(text, sid=0, speed=float(speed or 1.0))
+        pcm = array("h", (int(max(-1.0, min(1.0, s)) * 32767) for s in audio.samples)).tobytes()
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(audio.sample_rate)
+            w.writeframes(pcm)
+        return buf.getvalue(), len(audio.samples) / audio.sample_rate
 
 
 class KvStore:
@@ -369,6 +497,7 @@ class Api:
         self._lock = threading.Lock()
         self._kv = KvStore(KV_DB, KV_FILE)
         self._server = BookServer()
+        self._voices = Voices()
         self._initial_path = initial_path
         self._client = None
         self._client_key = None
@@ -679,6 +808,32 @@ class Api:
         threading.Timer(1.5, lambda: webview.windows[0].destroy()).start()
         return {"ok": True, "version": info["latest"]}
 
+    # ---------- neural reading voices (Piper via sherpa-onnx) ----------
+    def voice_status(self):
+        return {"ok": True, "voices": self._voices.status()}
+
+    def voice_install(self, vid):
+        return {"ok": self._voices.install(str(vid))}
+
+    def voice_remove(self, vid):
+        if str(vid) in VOICES:
+            self._voices.remove(str(vid))
+        return self.voice_status()
+
+    def voice_speak(self, vid, text, speed=1.0):
+        """One sentence as audio: {"url"} of a WAV the page plays (served by the local book server)."""
+        vid, text = str(vid), str(text or "").strip()[:2000]
+        if vid not in VOICES or not self._voices.installed(vid):
+            return {"ok": False, "message": "Ses kurulu değil."}
+        if not text:
+            return {"ok": False, "message": "Metin yok."}
+        try:
+            wav, secs = self._voices.wav(vid, text, speed)
+        except Exception as e:  # noqa: BLE001
+            log("error", f"voice_speak: {e!r}")
+            return {"ok": False, "message": str(e)}
+        return {"ok": True, "url": self._server.add_audio(wav), "seconds": round(secs, 2)}
+
     # ---------- free books (Project Gutenberg's own catalogue feed, OPDS) ----------
     def _catalog_fetch(self, url, limit):
         """GET an https URL on the catalog hosts only (the page cannot use this to reach anything else)."""
@@ -918,7 +1073,25 @@ def focus_running_instance() -> bool:
     return True
 
 
+def voice_selftest(out):
+    """Developer check of the bundled speech engine: Ayrac.exe --voice-selftest <folder with a Piper voice> <out.txt>."""
+    try:
+        import sherpa_onnx
+        d = Path(sys.argv[sys.argv.index("--voice-selftest") + 1])
+        model = sherpa_onnx.OfflineTtsModelConfig(num_threads=2)
+        model.vits = sherpa_onnx.OfflineTtsVitsModelConfig(model=str(next(d.glob("*.onnx"))), tokens=str(d / "tokens.txt"),
+                                                           data_dir=str(d / "espeak-ng-data"))
+        t0 = time.time()
+        a = sherpa_onnx.OfflineTts(sherpa_onnx.OfflineTtsConfig(model=model)).generate("Hello from the packaged app.", sid=0, speed=1.0)
+        Path(out).write_text(f"ok {len(a.samples) / a.sample_rate:.2f}s audio in {time.time() - t0:.2f}s", encoding="utf-8")
+    except Exception as e:  # noqa: BLE001
+        Path(out).write_text("error " + repr(e), encoding="utf-8")
+
+
 def main():
+    if "--voice-selftest" in sys.argv:
+        voice_selftest(sys.argv[-1])
+        return
     initial = next((a for a in sys.argv[1:] if a.lower().endswith(".epub")), None)
     if data_dir_is_redirected():
         args = " ".join(f'"{a}"' for a in sys.argv[1:])

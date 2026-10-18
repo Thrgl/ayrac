@@ -28,6 +28,13 @@ $shell = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name=
 Copy-Item (Join-Path $here 'web\android-bridge.js') (Join-Path $assets 'web') -Force
 Copy-Item (Join-Path $env:TEMP 'ayrac-build\dict\en-tr.sqlite') (Join-Path $assets 'dict') -Force
 
+# Neural voice engine (sherpa-onnx, Apache-2.0): the Android library, fetched once (not in git, 37 MB)
+$aar = Join-Path $here 'app\libs\sherpa-onnx-static-link-onnxruntime-1.13.8.aar'
+if (-not (Test-Path $aar)) {
+  New-Item -ItemType Directory -Force (Split-Path $aar) | Out-Null
+  Invoke-WebRequest -UseBasicParsing -TimeoutSec 900 -OutFile $aar -Uri 'https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-static-link-onnxruntime-1.13.8.aar'
+}
+
 # Launcher icons
 & $py (Join-Path $here 'make_icons.py') (Join-Path $here 'app\src\main\res')
 

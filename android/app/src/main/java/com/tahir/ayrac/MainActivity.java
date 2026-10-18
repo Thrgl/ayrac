@@ -73,7 +73,7 @@ public class MainActivity extends Activity {
         store = new Store(new File(getFilesDir(), "Ayrac"));
         secrets = getSharedPreferences("ayrac-secrets", MODE_PRIVATE);
         store.log("info", "start: Ayraç " + version() + " Android " + Build.VERSION.RELEASE);
-        speech = new Speech(this, (id, type, at) ->
+        speech = new Speech(this, new NeuralVoice(new File(store.dir, "voices"), store), (id, type, at) ->
                 js("window.__ayracTts && window.__ayracTts(" + JSONObject.quote(id) + "," + JSONObject.quote(type) + "," + at + ")"));
 
         WebView.setWebContentsDebuggingEnabled(Boolean.TRUE.equals(store.kvGet("devMode")));
@@ -517,6 +517,10 @@ public class MainActivity extends Activity {
                     return new JSONObject().put("ok", false).put("message", String.valueOf(e.getMessage()));
                 }
             }
+            case "voice_status": return new JSONObject().put("ok", true).put("voices", speech.neural.status());
+            case "voice_install": return new JSONObject().put("ok", speech.neural.install(String.valueOf(str(a, 0))));
+            case "voice_remove": speech.neural.remove(String.valueOf(str(a, 0))); return new JSONObject().put("ok", true).put("voices", speech.neural.status());
+            case "voice_select": speech.neural.select(str(a, 0)); return new JSONObject().put("ok", true).put("active", speech.neural.active());
             case "set_reminder": {
                 boolean on = a.optBoolean(0);
                 if (on && Build.VERSION.SDK_INT >= 33
@@ -585,6 +589,12 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void stopSpeaking() {
             speech.stop();
+        }
+
+        /** The neural voice makes the next sentence while this one is read (no pause between sentences). */
+        @JavascriptInterface
+        public void prefetch(String text, float rate) {
+            speech.neural.prefetch(text, rate);
         }
     }
 }
