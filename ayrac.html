@@ -318,6 +318,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
   padding: 16px; display: grid; gap: 16px;
 }
 .pop-group { font-size: .7rem; text-transform: uppercase; letter-spacing: .14em; color: var(--rlink); font-weight: 700; border-top: 1px solid var(--rline); padding-top: 14px; margin-top: 2px; }
+/* Settings sections: tap a heading to open it downwards, tap again to close. */
+#prefs { gap: 0; padding-top: 4px; padding-bottom: 6px; }
+.pop-sec > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 12px 2px; margin: 0; user-select: none; }
+.pop-sec:first-child > summary { border-top: 0; }
+.pop-sec > summary::-webkit-details-marker { display: none; }
+.pop-sec > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .2s ease; }
+.pop-sec[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.pop-body { display: grid; gap: 16px; padding: 2px 0 16px; }
+.pop-sec[open] > .pop-body { animation: ay-down .2s ease-out; }
+.pop-note { margin: 0; font-size: .8rem; line-height: 1.45; color: var(--ink-soft); }
 .setting { display: grid; gap: 7px; }
 .setting > span { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); font-weight: 600; }
 .seg { display: flex; border: 1px solid var(--rline); border-radius: 10px; padding: 3px; gap: 3px; }
@@ -344,10 +354,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
   padding: 14px 16px 14px; display: grid; gap: 11px; font-family: var(--font-ui);
 }
 .wordcard.sheet {
-  left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 68vh; border-radius: 16px 16px 0 0; border-bottom: 0;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 34vh; border-radius: 16px 16px 0 0; border-bottom: 0;
+  padding: 10px max(14px, env(safe-area-inset-right, 0px)) 0 max(14px, env(safe-area-inset-left, 0px)); gap: 7px;
 }
+/* Phone: a compact sheet that leaves most of the page visible; the save buttons stay in view while it scrolls. */
+.wordcard.sheet .wc-word { font-size: 1.25rem; }
+.wordcard.sheet .wc-ipa { font-size: .85rem; }
+.wordcard.sheet .wc-head .icon-btn { height: 32px; min-width: 32px; }
+.wordcard.sheet .wc-tr { font-size: 1.05rem; }
+.wordcard.sheet .wc-def { font-size: .88rem; line-height: 1.35; }
+.wordcard.sheet .dict-sec { gap: 4px; padding-top: 6px; }
+.wordcard.sheet .dict-tr, .wordcard.sheet .dict-k { gap: 1px; font-size: .9rem; }
+.wordcard.sheet .wc-count { font-size: .75rem; }
+.wordcard.sheet .wc-sentence { font-size: .86rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.wordcard.sheet .wc-foot {
+  position: sticky; bottom: 0; z-index: 1; background: var(--paper); margin: 0 -2px; padding: 8px 2px calc(10px + env(safe-area-inset-bottom, 0px));
+  flex-wrap: nowrap; overflow-x: auto; gap: 6px; border-top: 1px solid var(--rline); scrollbar-width: none;
+}
+.wordcard.sheet .wc-foot .btn { flex: none; padding: 7px 12px; font-size: .84rem; }
+.wordcard.sheet .wc-links { font-size: .72rem; padding-bottom: 10px; }
 .wc-head { display: flex; align-items: flex-start; gap: 4px; }
 .wc-title { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .wc-word { font-family: var(--font-display); font-size: 1.55rem; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
@@ -480,7 +505,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .dev-info { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; font-size: .85rem; }
 .dev-info dt { color: var(--muted); }
 .dev-info dd { margin: 0; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: .8rem; }
-.ai-entry { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.ai-entry { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.brand-tools { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.lib-gear { display: inline-flex; align-items: center; gap: 7px; }
+.lib-gear svg { width: 17px; height: 17px; }
+.lib-settings { gap: 14px; }
+.lib-settings h2 { margin: 0; }
+.ls-group { margin: 6px 0 0; font-size: .7rem; text-transform: uppercase; letter-spacing: .14em; color: var(--accent); font-weight: 700; border-top: 1px solid var(--line); padding-top: 14px; }
+.lib-settings .stepper { --rline: var(--line); --ink: var(--fg); }
+.wpm-now { font-size: .88rem; color: var(--muted); line-height: 1.45; }
+.wpm-now b { color: var(--fg); font-variant-numeric: tabular-nums; }
+.wpm-text { font-family: var(--font-read); font-size: 1.08rem; line-height: 1.7; max-height: 50vh; overflow-y: auto; padding: 4px 2px; }
+.wpm-result { font-size: .95rem; line-height: 1.5; }
+.wpm-result b { font-family: var(--font-display); font-size: 1.6rem; font-weight: 500; }
+.lib-settings .seg { --rline: var(--line); --rlink: var(--accent); --ink: var(--fg); --ink-soft: var(--muted); }
 .ai-chip { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
 .ai-chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
 .ai-chip.on::before { background: var(--good); }
@@ -513,6 +551,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .icon-btn { padding: 0 8px; }
   #page { padding-block: 26px 20px; }
 }
+/* Opening animations: panels slide in from their side, popups grow from where they point, the scrim fades. */
+@keyframes ay-fade { from { opacity: 0; } }
+@keyframes ay-from-left { from { transform: translateX(-100%); } }
+@keyframes ay-from-right { from { transform: translateX(100%); } }
+@keyframes ay-from-bottom { from { transform: translateY(100%); } }
+@keyframes ay-pop { from { opacity: 0; transform: translateY(-8px) scale(.97); } }
+@keyframes ay-rise { from { opacity: 0; transform: translateY(10px) scale(.98); } }
+@keyframes ay-down { from { opacity: 0; transform: translateY(-6px); } }
+.scrim:not([hidden]), .modal-wrap:not([hidden]) { animation: ay-fade .2s ease-out; }
+.drawer:not([hidden]) { animation: ay-from-left .26s cubic-bezier(.2, .8, .2, 1); }
+.drawer.right:not([hidden]) { animation-name: ay-from-right; }
+.popover:not([hidden]) { animation: ay-pop .18s ease-out; transform-origin: top right; }
+.modal-wrap:not([hidden]) .modal { animation: ay-rise .22s cubic-bezier(.2, .8, .2, 1); }
+.wordcard:not([hidden]) { animation: ay-rise .16s ease-out; }
+.wordcard.sheet:not([hidden]) { animation: ay-from-bottom .24s cubic-bezier(.2, .8, .2, 1); }
+.pickbar:not([hidden]), .selbar:not([hidden]), .fncard:not([hidden]) { animation: ay-fade .16s ease-out; }
+.nb-pane:not([hidden]), .notes-pane:not([hidden]) { animation: ay-fade .18s ease-out; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 
@@ -527,9 +582,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
         <h1>Ayraç</h1>
         <p>İngilizce kitap oku. Bilmediğin kelimeye dokun, anlamını gör, defterine ekle, sonra tekrar et.</p>
       </div>
-      <div class="ai-entry desktop-only" hidden>
-        <span class="ai-chip" id="aiChip">Claude</span>
-        <button class="btn-ghost" id="aiOpen" type="button">Claude ayarları</button>
+      <div class="brand-tools">
+        <div class="ai-entry desktop-only" hidden>
+          <span class="ai-chip" id="aiChip">Claude</span>
+          <button class="btn-ghost" id="aiOpen" type="button">Claude ayarları</button>
+        </div>
+        <button class="btn-ghost lib-gear" id="libSettingsBtn" type="button" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <span>Ayarlar</span>
+        </button>
       </div>
     </header>
 
@@ -615,9 +676,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
     </button>
 
     <div class="popover" id="prefs" hidden role="dialog" aria-label="Ayarlar">
+      <details class="pop-sec" data-sec="look" open><summary class="pop-group">Görünüm</summary><div class="pop-body">
       <div class="setting"><span>Tema</span>
         <div class="seg" data-pref="theme">
-          <button type="button" data-v="auto">Sistem</button>
+          <button type="button" data-v="auto" title="Uygulama temasıyla aynı (başlangıç ekranındaki Ayarlar)">Uygulama</button>
           <button type="button" data-v="light"><i class="swatch" style="background:#fcfcfa"></i>Açık</button>
           <button type="button" data-v="sepia"><i class="swatch" style="background:#f1e7d3"></i>Sepya</button>
           <button type="button" data-v="night"><i class="swatch" style="background:#0f1211"></i>Gece</button>
@@ -664,16 +726,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <button type="button" data-v="46em">Geniş</button>
         </div>
       </div>
+      </div></details>
 
-      <div class="pop-group">İngilizce çalışma</div>
-      <div class="setting"><span>Seviyem (açıklamalar buna göre)</span>
-        <div class="seg" data-pref="level">
-          <button type="button" data-v="A2">A2</button>
-          <button type="button" data-v="B1">B1</button>
-          <button type="button" data-v="B2">B2</button>
-          <button type="button" data-v="C1">C1</button>
-        </div>
-      </div>
+      <details class="pop-sec" data-sec="study"><summary class="pop-group">İngilizce çalışma</summary><div class="pop-body">
       <div class="setting"><span>Telaffuz</span>
         <div class="seg" data-pref="accent">
           <button type="button" data-v="en-US">Amerikan</button>
@@ -713,23 +768,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <button type="button" data-v="off">Gösterme</button>
         </div>
       </div>
-      <div class="setting"><span>Günlük okuma hedefi</span>
-        <div class="seg" data-pref="goal">
-          <button type="button" data-v="10">10 dk</button>
-          <button type="button" data-v="15">15 dk</button>
-          <button type="button" data-v="30">30 dk</button>
-          <button type="button" data-v="60">60 dk</button>
-        </div>
-      </div>
-      <div class="setting"><span>Günde yeni kelime (tekrarda)</span>
-        <div class="seg" data-pref="newPerDay">
-          <button type="button" data-v="10">10</button>
-          <button type="button" data-v="20">20</button>
-          <button type="button" data-v="40">40</button>
-          <button type="button" data-v="all">Sınırsız</button>
-        </div>
-      </div>
-      <div class="pop-group">Okuma</div>
+      <p class="pop-note">Seviye, günlük hedef, okuma hızı ve uygulama teması: kitaplıktaki <b>Ayarlar</b>.</p>
+      </div></details>
+      <details class="pop-sec" data-sec="read"><summary class="pop-group">Okuma</summary><div class="pop-body">
       <div class="setting"><span>Sayfa düzeni</span>
         <div class="seg" data-pref="layout">
           <button type="button" data-v="scroll">Kaydırma</button>
@@ -749,6 +790,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
         </div>
       </div>
       <button class="btn" id="keysBtn" type="button" style="justify-self:start">Klavye kısayolları (?)</button>
+      </div></details>
     </div>
   </header>
 
@@ -973,6 +1015,84 @@ button { font: inherit; color: inherit; cursor: pointer; }
     <div class="stats-totals" id="statsTotals"></div>
     <div id="statsCharts"></div>
     <div class="modal-actions"><button class="btn" id="statsClose" type="button">Kapat</button></div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="libSettings" hidden>
+  <div class="modal lib-settings" role="dialog" aria-modal="true" aria-labelledby="libSettingsTitle">
+    <h2 id="libSettingsTitle">Ayarlar</h2>
+    <h3 class="ls-group">Görünüm</h3>
+    <div class="setting"><span>Uygulama teması</span>
+      <div class="seg" data-pref="appTheme">
+        <button type="button" data-v="auto">Sistem</button>
+        <button type="button" data-v="light">Açık</button>
+        <button type="button" data-v="dark">Koyu</button>
+      </div>
+    </div>
+    <div class="setting"><span>Açılışta</span>
+      <div class="seg" data-pref="startup">
+        <button type="button" data-v="library">Kitaplığı göster</button>
+        <button type="button" data-v="last">Son okuduğum kitabı aç</button>
+      </div>
+    </div>
+
+    <h3 class="ls-group">Çalışma</h3>
+    <div class="setting"><span>Seviyem</span>
+      <div class="wpm-now">Kelime açıklamaları, bölüm başındaki zor kelimeler ve kitabın sana uygunluğu buna göre.</div>
+      <div class="seg" data-pref="level">
+        <button type="button" data-v="A2">A2</button>
+        <button type="button" data-v="B1">B1</button>
+        <button type="button" data-v="B2">B2</button>
+        <button type="button" data-v="C1">C1</button>
+      </div>
+    </div>
+    <div class="setting"><span>Günlük okuma hedefi</span>
+      <div class="stepper">
+        <button type="button" id="goalDown" aria-label="Hedefi 5 dakika azalt">−</button>
+        <output id="goalOut">15 dk</output>
+        <button type="button" id="goalUp" aria-label="Hedefi 5 dakika artır">+</button>
+      </div>
+    </div>
+    <div class="setting"><span>Günde yeni kelime (tekrarda)</span>
+      <div class="seg" data-pref="newPerDay">
+        <button type="button" data-v="10">10</button>
+        <button type="button" data-v="20">20</button>
+        <button type="button" data-v="40">40</button>
+        <button type="button" data-v="all">Sınırsız</button>
+      </div>
+    </div>
+
+    <h3 class="ls-group">Okuma hızı</h3>
+    <div class="setting"><span>Okuma hızım</span>
+      <div class="wpm-now" id="wpmNow"></div>
+      <div class="seg" data-pref="wpmMode">
+        <button type="button" data-v="auto">Ölçülen hızım</button>
+        <button type="button" data-v="manual">Elle ayarla</button>
+      </div>
+      <div class="stepper" id="wpmStepper">
+        <button type="button" id="wpmDown" aria-label="Hızı azalt">−</button>
+        <output id="wpmOut">200 kelime/dk</output>
+        <button type="button" id="wpmUp" aria-label="Hızı artır">+</button>
+      </div>
+      <button class="btn" id="wpmTestBtn" type="button" style="justify-self:start">Hızımı ölç (1 dakikalık test)</button>
+    </div>
+    <p class="note">Yazı tipi, yazı boyutu, okuma teması, sesli okuma ve sayfa çevirme: kitap açıkken “Aa” düğmesinde.</p>
+    <div class="modal-actions"><button class="btn solid" id="libSettingsClose" type="button">Tamam</button></div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="wpmTest" hidden>
+  <div class="modal wpm-test" role="dialog" aria-modal="true" aria-labelledby="wpmTestTitle">
+    <h2 id="wpmTestTitle">Okuma hızı testi</h2>
+    <p class="note" id="wpmTestHelp">Aşağıdaki kısa metni her zamanki gibi, anlayarak oku. “Başla”ya bastığında metin açılır ve süre başlar; bitirince “Bitirdim”e bas.</p>
+    <div class="wpm-text" id="wpmText" hidden></div>
+    <div class="wpm-result" id="wpmResult" hidden></div>
+    <div class="modal-actions">
+      <button class="btn solid" id="wpmStart" type="button">Başla</button>
+      <button class="btn solid" id="wpmDone" type="button" hidden>Bitirdim</button>
+      <button class="btn solid" id="wpmUse" type="button" hidden>Bu hızı kullan</button>
+      <button class="btn" id="wpmClose" type="button">Kapat</button>
+    </div>
   </div>
 </div>
 
@@ -1395,8 +1515,15 @@ const FONTS = {
   book: '',
 };
 const prefs = Object.assign({ theme: 'auto', font: 'literata', fs: 19, lh: '1.65', width: '38em', level: 'B1', accent: 'en-US', rate: '0.9', mark: 'on', goal: '15', newPerDay: '20', cardMode: 'mix',
-  layout: 'scroll', edgeTap: 'off', swipe: 'on', preWords: 'on', ink: 'auto', voice: '', shadow: 'off' }, store.get('prefs', {}));
+  layout: 'scroll', edgeTap: 'off', swipe: 'on', preWords: 'on', appTheme: 'auto', startup: 'library', wpmMode: 'auto', wpm: 200, ink: 'auto', voice: '', shadow: 'off' }, store.get('prefs', {}));
+// The whole app's light/dark theme (library, panels; the reader too when its theme is "Uygulamayla aynı").
+function applyAppTheme() {
+  if (prefs.appTheme === 'light' || prefs.appTheme === 'dark') document.documentElement.dataset.theme = prefs.appTheme;
+  else delete document.documentElement.dataset.theme;
+}
+applyAppTheme();
 function applyPrefs() {
+  applyAppTheme();
   const r = $('#reader');
   if (!r.hidden) document.body.dataset.read = prefs.theme;
   r.style.setProperty('--fs', prefs.fs + 'px');
@@ -1404,7 +1531,7 @@ function applyPrefs() {
   r.style.setProperty('--measure', prefs.width);
   r.style.setProperty('--ff', FONTS[prefs.font] || FONTS.literata);
   $('#fsOut').textContent = prefs.fs + ' px';
-  document.querySelectorAll('#prefs .seg').forEach((seg) => {
+  document.querySelectorAll('#prefs .seg, #libSettings .seg').forEach((seg) => {
     seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(String(prefs[seg.dataset.pref]) === b.dataset.v)));
   });
   const body = shadow && shadow.querySelector('.epub-body');
@@ -1761,12 +1888,19 @@ window.addEventListener('resize', () => {
 
 /* Personal reading speed: words that scrolled past while reading (counted in the 15-second activity tick),
    divided by reading time, over the last 30 days. 200 words/minute until there is enough data. */
-function readingWpm() {
+// Reading speed (words per minute) from the last 30 days of reading; null until there is enough to measure.
+function measuredWpm() {
   let words = 0, ms = 0;
   const since = dayKey(new Date(Date.now() - 30 * DAY));
   for (const [k, d] of Object.entries(stats.data)) if (k >= since) { words += d.words || 0; ms += d.read || 0; }
-  if (ms < 10 * MIN || words < 300) return 200;
+  if (ms < 10 * MIN || words < 300) return null;
   return Math.min(600, Math.max(80, Math.round(words / (ms / MIN))));
+}
+// The speed used for "bölümde ~N dk": the one set in Ayarlar → Okuma hızı, else the measured one, else 200.
+function readingWpm() {
+  const set = Number(prefs.wpm);
+  if (prefs.wpmMode === 'manual' && set >= 50 && set <= 800) return set;
+  return measuredWpm() || 200;
 }
 const progressTick = { chapter: -1, frac: 0 };
 function countWordsRead() {
@@ -2452,7 +2586,16 @@ function renderDict(res) {
     else if (k) box.appendChild(el('div', 'wc-tr', k));
     body.appendChild(box);
   }
-  renderDictEntries(body, res.entries, 4);
+  // Phone: the first two meaning groups, the rest behind "Diğer anlamlar" so the sheet stays small.
+  const shown = window.innerWidth < 640 ? 2 : 4, entries = res.entries || [];
+  renderDictEntries(body, entries, shown);
+  if (entries.length > shown && shown < 4) {
+    const more = el('details', 'dict-also');
+    more.appendChild(el('summary', '', 'Diğer anlamlar (' + (Math.min(4, entries.length) - shown) + ')'));
+    renderDictEntries(more, entries.slice(shown), 4 - shown);
+    more.addEventListener('toggle', () => placeCard());
+    body.appendChild(more);
+  }
   if (res.also) {
     const also = el('details', 'dict-also');
     also.appendChild(el('summary', '', 'Kök kelime: ' + res.also.head + (res.also.note ? ' (' + res.also.note + ')' : '')));
@@ -3731,6 +3874,84 @@ document.querySelectorAll('#prefs .seg').forEach((seg) => seg.addEventListener('
   if (seg.dataset.pref === 'goal' || seg.dataset.pref === 'newPerDay') vocab.listeners.forEach((fn) => fn());  // badge + strip
 }));
 $('#inkPick').addEventListener('input', () => changePref(() => { prefs.ink = $('#inkPick').value; }));
+// Settings on the start screen (library)
+function openLibSettings() { applyPrefs(); renderLibExtras(); $('#libSettings').hidden = false; $('#libSettingsClose').focus(); }
+function renderLibExtras() {
+  $('#goalOut').textContent = (Number(prefs.goal) || 15) + ' dk';
+  const m = measuredWpm();
+  $('#wpmNow').replaceChildren(...(m
+    ? [document.createTextNode('Ölçülen hızın: '), el('b', '', m + ' kelime/dk'), document.createTextNode(' (son 30 günün okumasından). Bölümde kalan süre seçtiğin hıza göre hesaplanır.')]
+    : [document.createTextNode('Henüz ölçülmedi: en az 10 dakika okuyunca hesaplanır; o zamana kadar 200 kelime/dk sayılır. Bölümde kalan süre bu hıza göre hesaplanır; istersen testle ölç ya da elle ayarla.')]));
+  $('#wpmStepper').hidden = prefs.wpmMode !== 'manual';
+  $('#wpmOut').textContent = (Number(prefs.wpm) || 200) + ' kelime/dk';
+}
+function stepPref(key, by, min, max, fallback) {
+  prefs[key] = String(Math.min(max, Math.max(min, (Number(prefs[key]) || fallback) + by)));
+  if (key === 'wpm') prefs.wpmSet = true;
+  applyPrefs(); renderLibExtras();
+  if (key === 'goal') vocab.listeners.forEach((fn) => fn());  // goal bar on the library strip
+}
+$('#goalDown').addEventListener('click', () => stepPref('goal', -5, 5, 240, 15));
+$('#goalUp').addEventListener('click', () => stepPref('goal', 5, 5, 240, 15));
+$('#wpmDown').addEventListener('click', () => stepPref('wpm', -10, 50, 800, 200));
+$('#wpmUp').addEventListener('click', () => stepPref('wpm', 10, 50, 800, 200));
+
+// Reading speed test: an easy original passage, timed from "Başla" to "Bitirdim".
+const WPM_TEXT = 'Every Saturday morning, Elif walks to the small market near her house. She likes to arrive early, when the streets are still quiet and the air smells of fresh bread. The first stall belongs to an old man who sells honey. He always gives her a small spoon to taste, and he always asks about her English lessons. Elif tells him that she reads a few pages every evening, even when she is tired. Some words are still difficult, but she writes them in a notebook and looks at them again the next day. After the honey stall, she buys tomatoes, cheese and a bunch of flowers for her mother. On the way home, she sits on a bench by the river and opens her book. Ten minutes of reading in the sun feels like a small holiday. She knows that learning a language is slow, but she also knows that every page makes the next one a little easier.';
+const wpmTest = { t0: 0, result: 0 };
+function showWpmStep(step) {
+  $('#wpmText').hidden = step !== 'reading';
+  $('#wpmResult').hidden = step !== 'result';
+  $('#wpmStart').hidden = step !== 'ready';
+  $('#wpmDone').hidden = step !== 'reading';
+  $('#wpmUse').hidden = step !== 'result';
+  $('#wpmTestHelp').hidden = step === 'result';
+}
+$('#wpmTestBtn').addEventListener('click', () => { showWpmStep('ready'); $('#wpmTest').hidden = false; $('#wpmStart').focus(); });
+$('#wpmStart').addEventListener('click', () => {
+  $('#wpmText').textContent = WPM_TEXT;
+  showWpmStep('reading');
+  $('#wpmText').scrollTop = 0;
+  wpmTest.t0 = performance.now();
+  $('#wpmDone').focus();
+});
+$('#wpmDone').addEventListener('click', () => {
+  const words = (WPM_TEXT.match(new RegExp(WORD_RE.source, 'g')) || []).length;
+  const ms = performance.now() - wpmTest.t0;
+  if (ms < 8000) { toast('Çok hızlı oldu. Metni okuyup bitirince “Bitirdim”e bas.'); return; }
+  wpmTest.result = Math.min(800, Math.max(50, Math.round(words / (ms / MIN) / 5) * 5));
+  const secs = Math.round(ms / 1000);
+  const hint = wpmTest.result < 100 ? 'Rahat, dikkatli bir hız; okudukça artar.' : wpmTest.result < 180 ? 'İngilizce öğrenenler için iyi bir hız.' : wpmTest.result < 260 ? 'Akıcı bir hız.' : 'Çok hızlı; metni anlayarak okuduysan harika.';
+  $('#wpmResult').replaceChildren(el('b', '', wpmTest.result + ' kelime/dk'), el('p', '', words + ' kelimeyi ' + Math.floor(secs / 60) + ' dk ' + (secs % 60) + ' sn’de okudun. ' + hint));
+  showWpmStep('result');
+  $('#wpmUse').focus();
+});
+$('#wpmUse').addEventListener('click', () => {
+  prefs.wpmMode = 'manual'; prefs.wpm = String(wpmTest.result); prefs.wpmSet = true;
+  applyPrefs(); renderLibExtras();
+  $('#wpmTest').hidden = true;
+  toast('Okuma hızın ' + wpmTest.result + ' kelime/dk olarak ayarlandı');
+});
+$('#wpmClose').addEventListener('click', () => { $('#wpmTest').hidden = true; });
+$('#libSettingsBtn').addEventListener('click', openLibSettings);
+$('#libSettingsClose').addEventListener('click', () => { $('#libSettings').hidden = true; });
+$('#libSettings').addEventListener('click', (e) => { if (e.target === $('#libSettings')) $('#libSettings').hidden = true; });
+document.querySelectorAll('#libSettings .seg').forEach((seg) => seg.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  prefs[seg.dataset.pref] = b.dataset.v;
+  if (seg.dataset.pref === 'wpmMode' && b.dataset.v === 'manual' && !prefs.wpmSet) prefs.wpm = String(measuredWpm() || 200);
+  applyPrefs(); renderLibExtras();
+  if (seg.dataset.pref === 'goal' || seg.dataset.pref === 'newPerDay') vocab.listeners.forEach((fn) => fn());  // badge + strip
+  if (seg.dataset.pref === 'level') renderShelf();  // level badges ("seviyene uygun")
+}));
+// Which settings sections are open is remembered.
+{
+  const saved = store.get('popSecs', null) || {};
+  document.querySelectorAll('#prefs .pop-sec').forEach((d) => {
+    if (d.dataset.sec in saved) d.open = !!saved[d.dataset.sec];
+    d.addEventListener('toggle', () => { const s = store.get('popSecs', null) || {}; s[d.dataset.sec] = d.open; store.set('popSecs', s); });
+  });
+}
 $('#fsDown').addEventListener('click', () => changePref(() => { prefs.fs = Math.max(13, prefs.fs - 1); }));
 $('#fsUp').addEventListener('click', () => changePref(() => { prefs.fs = Math.min(32, prefs.fs + 1); }));
 $('#prevBtn').addEventListener('click', () => goTo(cur - 1, { frac: 0 }));
@@ -4232,11 +4453,19 @@ updateListenBtn();
 vocab.changed();
 await renderShelf();
 syncSystemBars();
+let openedAtStart = false;
 if (host) {
   // a book passed on the command line ("Open with" / double-clicked .epub)
   const f = await host.api.initial_file();
-  if (f && f.b64) openFile(new File([b64ToBlob(f.b64, 'application/epub+zip')], f.name || 'kitap.epub'));
+  if (f && f.b64) { openedAtStart = true; openFile(new File([b64ToBlob(f.b64, 'application/epub+zip')], f.name || 'kitap.epub')); }
   setTimeout(() => checkUpdate(false).catch(() => {}), 2500);
+}
+// Ayarlar → Açılışta → "Son okuduğum kitabı aç"
+if (!openedAtStart && prefs.startup === 'last') {
+  try {
+    const last = ((await books.all()) || []).filter((r) => !r.finished).sort((a, b) => (b.opened || 0) - (a.opened || 0))[0];
+    if (last) openFile(last.file, last);
+  } catch (e) { devlog('warn', 'startup: cannot open the last book: ' + e); }
 }
 })();
 </script>

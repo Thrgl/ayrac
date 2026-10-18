@@ -2,6 +2,15 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.4.1 — 2026-10-18
+- Başlangıç ekranında "Ayarlar" (genel ayarlar): uygulama teması (Sistem / Açık / Koyu), açılışta ne açılsın (kitaplık ya da son okuduğun kitap), seviye, günlük okuma hedefi (5 dakikalık adımlarla 5–240 dk), günde yeni kelime, okuma hızı.
+- Okuma hızı: son 30 günün okumasından ölçülen hız gösterilir; istersen elle ayarlarsın ya da "Hızımı ölç" ile 1 dakikalık testi yaparsın (kısa bir metni okuyup "Bitirdim"e basarsın, "Bu hızı kullan"). Bölümde kalan süre ("bölümde ~11 dk") bu hıza göre hesaplanır.
+- Okuma ayarları ("Aa") sadeleşti: yalnız okumaya ait olanlar (görünüm, sesli okuma, sayfa çevirme); genel ayarlar başlangıç ekranına taşındı, aynı ayar iki yerde yok. Üç açılır bölüm: Görünüm, İngilizce çalışma, Okuma; başlığa dokununca aşağı doğru açılır, hangilerinin açık olduğu hatırlanır.
+- Animasyonlar: ayarlar, defter, içindekiler ve arama panelleri kayarak; kelime kartı, pencereler ve arka plan karartması yumuşakça açılır. (Cihazda "hareketi azalt" açıksa kapalı.)
+- Telefonda kelime kartı küçüldü: ekranın en fazla üçte biri kadar; ilk iki anlam grubu görünür, kalanı "Diğer anlamlar" altında; "Deftere ekle" düğmeleri kartın altında hep görünür.
+- Okuma temasındaki "Sistem" seçeneğinin adı "Uygulama" oldu (uygulama temasını izler).
+- Bilgisayar ve telefon için. (Parmakla kaydırarak sayfa çevirme yine yalnız telefonda.)
+
 ## 2.4.0 — 2026-10-18 (yalnız Android)
 - Telefonda sayfa çevirme artık kaydırmayla: parmağını sağdan sola kaydır, sonraki sayfa; soldan sağa, önceki sayfa. Hem "Kaydırma" hem "Sayfa sayfa" düzeninde çalışır. Ayarlar → Okuma → "Parmakla sağa / sola kaydırınca sayfa çevir".
 - Telefonda kenara dokunarak sayfa çevirme kaldırıldı: ekranın kenarına yakın bir kelimeye dokununca anlamı yerine sayfa değişiyordu. Dokunuş artık her zaman kelime içindir.
