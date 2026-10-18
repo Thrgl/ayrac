@@ -45,7 +45,7 @@ Ayrac/
 |---|---|
 | `kv_all`, `kv_set`, `kv_del` | Ayarlar, kelime defteri, okuma konumları, notlar → `%APPDATA%\Ayrac\data.sqlite` (tablo `kv`; 2.1.0 öncesindeki `data.json` ilk açılışta taşınır ve `.bak` olarak saklanır) |
 | `books_list`, `book_meta`, `book_put`, `book_file`, `book_url`, `book_delete` | Kitaplık → `%APPDATA%\Ayrac\books\<sha1>.epub / .json / .cover`. Kitap ve kapaklar köprüden base64 geçmez: `127.0.0.1` üzerinde rastgele portta, rastgele anahtarlı adresle (`BookServer`) dosya olarak verilir |
-| `dict_info`, `dict_lookup`, `dict_lookup_many`, `dict_profile` | Çevrimdışı sözlük (kök bulma, phrasal verb tespiti); `dict_profile` çok sayıda kelimenin kökünü ve sıklığını tek seferde verir (kitabın seviyesi, bölüm öncesi zor kelimeler; yalnız masaüstü) |
+| `dict_info`, `dict_lookup`, `dict_lookup_many`, `dict_profile` | Çevrimdışı sözlük (kök bulma, phrasal verb tespiti); `dict_profile` çok sayıda kelimenin kökünü ve sıklığını tek seferde verir (kitabın seviyesi, bölüm öncesi zor kelimeler; masaüstü ve Android) |
 | `open_cambridge` | Cambridge Dictionary sayfasını ayrı bir uygulama penceresinde açar |
 | `ai_status`, `ai_set_key`, `ai_clear_key`, `ai_set_model`, `ask` | İsteğe bağlı Claude (Anthropic API). Anahtar Windows Kimlik Bilgileri Yöneticisi'nde |
 | `initial_file` | Komut satırından verilen .epub (Birlikte aç) |
@@ -149,6 +149,8 @@ Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
 ```powershell
 & "$env:TEMP\ayrac-build\venv\Scripts\python.exe" -m pytest desktop\tests -q -p no:cacheprovider
 ```
+
+**Android sözlük testi (`android\test.ps1`):** aynı `desktop\tests\dict_cases.json` vakalarını `Dictionary.java` üzerinde JUnit ile çalıştırır (veritabanı testte JDBC ile açılır, `Dictionary.Source`). Sözlük kuralını bir tarafta değiştirince ikisini de çalıştır; yeni bir vaka eklemek için JSON'a bir satır yeter.
 
 **Python köprüsü:** `ayrac_app.Api` ve `ayrac_app.Dictionary` doğrudan içe aktarılıp çağrılabilir (veri klasörünü bozmamak için `APPDATA`'yı geçici bir klasöre yönlendirin).
 
@@ -346,3 +348,39 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 3. Tekrar algoritması ve yeni kart türleri, günlük seri
 4. Kurulum programı + dosya ilişkilendirme + güncelleyici
 5. Android + eşitleme (yukarıdaki yol haritası)
+
+---
+
+## Eklenebilecekler — ikinci liste (2026-10-18)
+
+2.4.x kodu incelenerek çıkarıldı. Yukarıdaki listede açık kalanlar: Claude özellikleri (ertelendi), eşitleme (Firebase projesi bekleniyor), kod imzalama. Aşağıdakiler yeni.
+
+### Önce bunlar
+
+| Ne | Neden | Emek |
+|---|---|---|
+| ✅ 2.5.0 — **Android imza anahtarının yedeği** (kopyası `Belgeler\Ayrac-veri\android-imza-anahtari`; bilgisayar dışına da konmalı) | `android\keystore.jks` ve `android\keystore.properties` yalnız bu bilgisayarda, git'e de girmiyor. Kaybolursa telefondaki Ayraç güncellenemez; kaldırıp yeniden kurmak gerekir ve telefondaki veriler gider. Bir kopyası USB'de ya da bulutta durmalı. | 5 dk |
+| ✅ 2.5.0 — **Java sözlüğünün testi** (`desktop\tests\dict_cases.json` iki tarafta: `pytest desktop\tests` ve `android\test.ps1`) | `Dictionary.java`, `ayrac_app.Dictionary`'nin elle yazılmış kopyası; testler (`desktop\tests`) yalnız Python tarafını deniyor. Bir tarafta yapılan düzeltme ötekine geçmezse telefon ve bilgisayar farklı sonuç verir. Test vakaları ortak bir JSON dosyasına taşınıp iki tarafta da çalıştırılmalı. | S |
+
+### Telefonda eksik kalanlar
+
+| Ne | Açıklama | Emek |
+|---|---|---|
+| ✅ 2.5.0 — **Kitap seviyesi ve bölüm başı zor kelimeler** | `dict_profile` Android köprüsünde yok, bu yüzden "≈B1" rozeti ve bölüm öncesi kelime listesi telefonda çalışmıyor. | S |
+| **Güncelleme denetimi** | Android'de `check_update` / `install_update` boş; her yeni APK telefona elle taşınıyor. APK'nın bir web adresinde (örn. GitHub Releases) durması gerekir; aynı adres masaüstü güncelleyicisinin `latest.json`'ı için de kullanılabilir. | M |
+
+### Yeni özellikler
+
+| Ne | Açıklama | Emek |
+|---|---|---|
+| ✅ 2.5.0 — **Defterde anlamı düzenleme** (anlam + not; not tekrar kartında ve CSV'de) | Sözlükten gelen anlam bazen yanlış ya da çok uzun; defterde şu an yalnız "Sil" var (`renderNotebookList`). Anlamı ve notu elle düzeltebilmek. | S |
+| ✅ 2.5.0 — **Defterden kitaptaki yere git** (yeni kayıtlarda `bookId` ve bölüm; eskilerde kitap adı ve cümle aranır) | Kelimenin cümlesine dokununca kitap o yerde açılsın. | S |
+| ✅ 2.5.0 — **Bir türlü öğrenilemeyen kelimeler** ("inatçı": 6+ kez unutulan; işaret, filtre, cümleli soru, "Baştan öğren") | Tekrar sistemi kaç kez unutulduğunu sayıyor (`lapses`) ama yalnız "en zor önce" sıralamasında kullanıyor. 6–8 kez unutulan kelime işaretlenip ayrı çalışılabilir ya da kart türü değiştirilebilir. | S |
+| **Günlük hatırlatma** | Telefonda bildirim: "12 kelime tekrar bekliyor · 7 günlük serin bozulmasın". Bilgisayarda isteğe bağlı. | M |
+| **Ücretsiz kitap kataloğu** | Standard Ebooks / Project Gutenberg'den kitap arama ve tek dokunuşla ekleme; seviye hesabı zaten var, kitaplar seviyeye göre sıralanabilir. | M |
+| ✅ 2.5.0 — **TXT** (açarken bellekte EPUB'a çevrilir; Gutenberg başlığı/lisansı ayıklanır) | Şu an yalnız EPUB açılıyor (`fileInput` `accept=".epub"`). Düz metin (.txt) kolayca eklenir. | S |
+
+### Ufak notlar
+
+- **Web yedeği kitapları içermiyor:** yalnız defter, okuma yerleri ve ayarlar (JSON). Masaüstü ve telefondaki ZIP yedekte kitaplar da var.
+- ✅ 2.5.0 — **`desktop\releases` büyüyor:** `build.ps1` (masaüstü ve Android) artık yalnız en yeni 4 sürümü tutuyor. ~18 dosya, ~600 MB. Yalnız son 3–4 sürümü tutma kuralı konabilir (`build.ps1` sonunda).

@@ -57,4 +57,10 @@ android {
 dependencies {
     implementation 'androidx.webkit:webkit:1.12.1'
     implementation 'com.anthropic:anthropic-java:2.34.0'
+
+    // Unit tests (android\test.ps1): the shared dictionary cases, with JDBC SQLite and the real org.json
+    // instead of the android.jar stubs.
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+    testImplementation 'org.xerial:sqlite-jdbc:3.46.1.3'
 }

@@ -455,6 +455,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .nb-say svg { width: 16px; height: 16px; }
 .nb-tr { font-weight: 600; line-height: 1.35; }
 .nb-sent { font-family: var(--font-read); font-size: .88rem; color: var(--ink-soft); line-height: 1.45; }
+button.nb-sent { border: 0; background: none; padding: 2px 0; text-align: left; width: 100%; border-radius: 6px; cursor: pointer; }
+button.nb-sent:hover { color: var(--ink); background: color-mix(in srgb, var(--rlink) 6%, transparent); }
+.nb-note { font-size: .85rem; line-height: 1.4; color: var(--ink-soft); font-style: italic; white-space: pre-wrap; }
+.chip.leech { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
+.nb-edit { display: grid; gap: 8px; }
+.nb-edit textarea { resize: vertical; }
+.nb-edit-acts { display: flex; gap: 8px; }
+.fc-leech { font-size: .82rem; color: var(--bad); text-align: center; }
 .nb-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; font-size: .75rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .boxes { display: inline-flex; gap: 2px; }
 .boxes i { width: 7px; height: 7px; border-radius: 2px; background: var(--rline); }
@@ -568,10 +576,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .wordcard.sheet:not([hidden]) { animation: ay-from-bottom .24s cubic-bezier(.2, .8, .2, 1); }
 .pickbar:not([hidden]), .selbar:not([hidden]), .fncard:not([hidden]) { animation: ay-fade .16s ease-out; }
 .nb-pane:not([hidden]), .notes-pane:not([hidden]) { animation: ay-fade .18s ease-out; }
+/* Closing: the same moves backwards (hideAnimated adds .closing, then hides the element when it ends). */
+@keyframes ay-out-fade { to { opacity: 0; } }
+@keyframes ay-out-left { to { transform: translateX(-100%); } }
+@keyframes ay-out-right { to { transform: translateX(100%); } }
+@keyframes ay-out-pop { to { opacity: 0; transform: translateY(-8px) scale(.97); } }
+@keyframes ay-out-sink { to { opacity: 0; transform: translateY(10px) scale(.98); } }
+.scrim.closing:not([hidden]), .modal-wrap.closing:not([hidden]) { animation: ay-out-fade .18s ease-in forwards; pointer-events: none; }
+.drawer.closing:not([hidden]) { animation: ay-out-left .2s cubic-bezier(.4, 0, 1, 1) forwards; }
+.drawer.right.closing:not([hidden]) { animation-name: ay-out-right; }
+.popover.closing:not([hidden]) { animation: ay-out-pop .14s ease-in forwards; pointer-events: none; }
+.modal-wrap.closing:not([hidden]) .modal { animation: ay-out-sink .18s ease-in forwards; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 
-<input type="file" id="fileInput" accept=".epub,application/epub+zip" hidden>
+<input type="file" id="fileInput" accept=".epub,application/epub+zip,.txt,text/plain" hidden>
 
 <!-- Library -->
 <main id="library">
@@ -600,9 +619,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
     </div>
 
     <section class="drop" id="dropZone" aria-labelledby="dropTitle">
-      <h2 id="dropTitle">Bir EPUB dosyası aç</h2>
+      <h2 id="dropTitle">Bir kitap aç (EPUB ya da TXT)</h2>
       <p id="dropDesc">Dosyayı buraya sürükle ya da bilgisayarından seç. Kitap yalnızca bu tarayıcıda açılır, hiçbir yere yüklenmez.</p>
-      <button class="btn-primary" id="pickBtn" type="button">EPUB dosyası seç</button>
+      <button class="btn-primary" id="pickBtn" type="button">Kitap seç (EPUB ya da TXT)</button>
       <div class="facts"><span>Kelimeye dokun, anlamını gör</span><span>Kelime defteri ve aralıklı tekrar</span><span>Sesli okuma</span><span>Bölüm sonu anlama testi</span></div>
     </section>
 
@@ -959,7 +978,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       </select></label>
       <label><span>Kitap</span><select class="field" id="nbBook"><option value="">Hepsi</option></select></label>
       <label><span>Durum</span><select class="field" id="nbState">
-        <option value="">Hepsi</option><option value="new">Yeni</option><option value="learning">Öğreniliyor</option><option value="known">İyi biliniyor</option><option value="due">Tekrarı gelmiş</option>
+        <option value="">Hepsi</option><option value="new">Yeni</option><option value="learning">Öğreniliyor</option><option value="known">İyi biliniyor</option><option value="due">Tekrarı gelmiş</option><option value="leech">İnatçı (6+ kez unutulan)</option>
       </select></label>
     </div>
     <ul class="nb-list" id="nbItems"></ul>
@@ -1161,6 +1180,96 @@ const XLINK = 'http://www.w3.org/1999/xlink';
 const DAY = 86400000;
 const SPEAK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>';
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+/* ================= Plain text (.txt) → a small EPUB =================
+   A .txt file is turned into an EPUB in memory when it is opened, so the library, backups, positions and
+   everything else treat it like any other book. Project Gutenberg's header and licence are left out and its
+   Title/Author lines are used. Chapters: "Chapter 1" / "CHAPTER IV" / "Part Two" lines, else every ~2500 words. */
+const isTextFile = (f) => !!f && !f.lazyId && (/\.txt$/i.test(f.name || '') || f.type === 'text/plain');
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xffffffff; for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+// files: [{name, data: Uint8Array, store?}] → ZIP bytes (deflated unless store).
+async function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), crc = crc32(f.data);
+    let body = f.data, method = 0;
+    if (!f.store && typeof CompressionStream !== 'undefined') {
+      const z = new Uint8Array(await new Response(new Blob([f.data]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+      if (z.length < f.data.length) { body = z; method = 8; }
+    }
+    const head = new DataView(new ArrayBuffer(30));
+    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, method, 2], [14, crc, 4], [18, body.length, 4], [22, f.data.length, 4], [26, name.length, 2]]
+      .forEach(([o, v, n]) => (n === 4 ? head.setUint32(o, v, true) : head.setUint16(o, v, true)));
+    const cen = new DataView(new ArrayBuffer(46));
+    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, method, 2], [16, crc, 4], [20, body.length, 4], [24, f.data.length, 4], [28, name.length, 2], [42, offset, 4]]
+      .forEach(([o, v, n]) => (n === 4 ? cen.setUint32(o, v, true) : cen.setUint16(o, v, true)));
+    parts.push(new Uint8Array(head.buffer), name, body);
+    central.push(new Uint8Array(cen.buffer), name);
+    offset += 30 + name.length + body.length;
+  }
+  const size = central.reduce((a, b) => a + b.length, 0), end = new DataView(new ArrayBuffer(22));
+  [[0, 0x06054b50, 4], [8, files.length, 2], [10, files.length, 2], [12, size, 4], [16, offset, 4]]
+    .forEach(([o, v, n]) => (n === 4 ? end.setUint32(o, v, true) : end.setUint16(o, v, true)));
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'application/epub+zip' });
+}
+function decodeText(buf) {
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); } catch (e) { return new TextDecoder('windows-1252').decode(buf); }
+}
+function hashText(s) {  // FNV-1a: the same text always gets the same book id
+  let h1 = 0x811c9dc5, h2 = 0x01000193;
+  for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619) >>> 0; h2 = Math.imul(h2 ^ c, 2246822519) >>> 0; }
+  return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+}
+const xmlEsc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+async function textToEpub(file) {
+  let text = decodeText(await file.arrayBuffer()).replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+  let title = (file.name || 'Metin').replace(/\.txt$/i, '').replace(/[_]+/g, ' ').trim() || 'Metin', author = '';
+  const start = text.match(/^\*\*\* ?START OF (THE|THIS) PROJECT GUTENBERG.*$/im);
+  if (start) {
+    const head = text.slice(0, start.index);
+    const t = head.match(/^Title:\s*(.+)$/im), a = head.match(/^Author:\s*(.+)$/im);
+    if (t) title = t[1].trim();
+    if (a) author = a[1].trim();
+    text = text.slice(start.index + start[0].length);
+    const end = text.match(/^\*\*\* ?END OF (THE|THIS) PROJECT GUTENBERG.*$/im);
+    if (end) text = text.slice(0, end.index);
+  }
+  let paras = text.split(/\n[ \t]*\n/);
+  if (paras.length < 3) paras = text.split('\n');  // one paragraph per line
+  paras = paras.map((p) => p.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
+  if (!paras.length) throw new Error('Dosyada okunacak metin yok.');
+  const HEAD_RE = /^(chapter|part|book|section|bölüm|kısım)\s+([0-9]+|[ivxlcdm]+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|[a-z]+teen|twenty[\w-]*|thirty[\w-]*)\b.{0,80}$/i;
+  const heads = paras.filter((p) => p.length < 100 && HEAD_RE.test(p)).length;
+  const chapters = [];
+  let curCh = null, words = 0;
+  for (const p of paras) {
+    const isHead = heads >= 2 && p.length < 100 && HEAD_RE.test(p);
+    if (isHead || !curCh || (heads < 2 && words > 2500)) {
+      curCh = { title: isHead ? p : (heads >= 2 && !chapters.length ? 'Başlangıç' : 'Bölüm ' + (chapters.length + 1)), paras: [] };
+      chapters.push(curCh); words = 0;
+      if (isHead) continue;
+    }
+    curCh.paras.push(p);
+    words += p.split(/\s+/).length;
+  }
+  const real = chapters.filter((c) => c.paras.length);
+  const id = 'txt-' + hashText(title + '\n' + paras.slice(0, 50).join('\n') + '\n' + paras.length);
+  const enc = new TextEncoder(), files = [{ name: 'mimetype', data: enc.encode('application/epub+zip'), store: true }];
+  files.push({ name: 'META-INF/container.xml', data: enc.encode('<?xml version="1.0" encoding="UTF-8"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>') });
+  const page = (t, body) => '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en"><head><meta charset="utf-8"/><title>' + xmlEsc(t) + '</title></head><body>' + body + '</body></html>';
+  real.forEach((c, i) => files.push({ name: 'OEBPS/c' + (i + 1) + '.xhtml', data: enc.encode(page(c.title, '<h2>' + xmlEsc(c.title) + '</h2>' + c.paras.map((p) => '<p>' + xmlEsc(p) + '</p>').join('\n'))) }));
+  files.push({ name: 'OEBPS/nav.xhtml', data: enc.encode(page(title, '<nav epub:type="toc"><ol>' + real.map((c, i) => '<li><a href="c' + (i + 1) + '.xhtml">' + xmlEsc(c.title) + '</a></li>').join('') + '</ol></nav>')) });
+  const opf = '<?xml version="1.0" encoding="UTF-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/">' +
+    '<dc:identifier id="uid">' + id + '</dc:identifier><dc:title>' + xmlEsc(title) + '</dc:title>' + (author ? '<dc:creator>' + xmlEsc(author) + '</dc:creator>' : '') +
+    '<dc:language>en</dc:language><meta property="dcterms:modified">2026-01-01T00:00:00Z</meta></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>' +
+    real.map((c, i) => '<item id="c' + (i + 1) + '" href="c' + (i + 1) + '.xhtml" media-type="application/xhtml+xml"/>').join('') +
+    '</manifest><spine>' + real.map((c, i) => '<itemref idref="c' + (i + 1) + '"/>').join('') + '</spine></package>';
+  files.push({ name: 'OEBPS/content.opf', data: enc.encode(opf) });
+  const blob = await makeZip(files);
+  return new File([blob], (file.name || 'metin.txt').replace(/\.txt$/i, '') + '.epub', { type: 'application/epub+zip' });
+}
 
 /* ================= ZIP (no library: central directory + DecompressionStream) ================= */
 async function openZip(buf) {
@@ -2613,7 +2722,7 @@ function makeEntry(word, sentence, info, manualTr) {
     id: wordId(head), head, word, lemma: normWord(i.lemma || word), phrase: i.phrase || '',
     ipa: i.ipa || '', pos: i.pos || '', cefr: i.cefr || '', tr: i.tr || manualTr || '',
     other: i.other_tr || '', def: i.def || '', example: i.example || '', exampleTr: i.example_tr || '',
-    sentence, book: book ? book.title : '', forms: [normWord(word)],
+    sentence, book: book ? book.title : '', bookId: book && book.record ? book.record.id : '', at: book ? { i: cur } : null, forms: [normWord(word)],
     added: Date.now(), box: 1, due: Date.now(), reviews: 0,
   };
 }
@@ -2752,10 +2861,10 @@ function refreshAiUi() {
 // Semicolon-separated with a BOM: Excel with Turkish settings opens it in columns, Anki imports it as notes.
 function notebookCsv() {
   const q = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""').replace(/\r?\n/g, ' ') + '"';
-  const head = ['Kelime', 'Anlam', 'Cümle', 'Okunuş', 'Tür', 'Seviye', 'İngilizce tanım', 'Örnek', 'Örnek (Türkçe)', 'Kitap', 'Eklenme'];
+  const head = ['Kelime', 'Anlam', 'Cümle', 'Okunuş', 'Tür', 'Seviye', 'İngilizce tanım', 'Örnek', 'Örnek (Türkçe)', 'Kitap', 'Eklenme', 'Not'];
   const rows = vocab.list().sort((a, b) => (a.added || 0) - (b.added || 0)).map((w) => [
     w.head, w.tr, w.sentence, w.ipa ? '/' + w.ipa + '/' : '', w.pos, w.cefr, w.def, w.example, w.exampleTr, w.book,
-    w.added ? new Date(w.added).toISOString().slice(0, 10) : '',
+    w.added ? new Date(w.added).toISOString().slice(0, 10) : '', w.note,
   ]);
   return '﻿' + [head, ...rows].map((r) => r.map(q).join(';')).join('\r\n') + '\r\n';
 }
@@ -2870,13 +2979,14 @@ async function goToMatch(i, n, q, whole) {
 }
 function openSearch(q, whole) {
   closePanels(); closeWordCard();
-  $('#searchDrawer').hidden = false; $('#scrim').hidden = window.innerWidth >= 640 ? true : false;
+  showNode($('#searchDrawer'));
+  if (window.innerWidth < 640) showNode($('#scrim')); else { $('#scrim').classList.remove('closing'); $('#scrim').hidden = true; }
   $('#searchBtn').setAttribute('aria-expanded', 'true');
   if (q != null) { $('#searchInput').value = q; $('#searchWhole').checked = whole !== false; }
   $('#searchInput').focus(); $('#searchInput').select();
   runSearch();
 }
-$('#searchBtn').addEventListener('click', () => { if ($('#searchDrawer').hidden) openSearch(); else closePanels(); });
+$('#searchBtn').addEventListener('click', () => { if (!isOpen($('#searchDrawer'))) openSearch(); else closePanels(); });
 $('#searchClose').addEventListener('click', () => closePanels());
 $('#searchInput').addEventListener('input', () => { clearTimeout(search.timer); search.timer = setTimeout(runSearch, 250); });
 $('#searchWhole').addEventListener('change', runSearch);
@@ -3136,7 +3246,7 @@ function setKnown(lemma, on) {
   if (on) known.add(lemma); else known.delete(lemma);
   store.set('known', [...known]);
 }
-const canProfile = () => useDict() && PLATFORM === 'windows';
+const canProfile = () => useDict();  // desktop and Android (dict_profile in both bridges)
 
 function wcLemma() { return wc ? normWord((wc.info && wc.info.lemma) || wc.word || '') : ''; }
 function updateKnownBtn() {
@@ -3545,7 +3655,7 @@ let nbTab = 'list';
 function openNotebook(tab) {
   closePanels(true);
   closeWordCard();
-  $('#notebook').hidden = false; $('#scrim').hidden = false;
+  showNode($('#notebook')); showNode($('#scrim'));
   $('#nbBtn').setAttribute('aria-expanded', 'true');
   setNbTab(tab || 'list');
 }
@@ -3556,7 +3666,7 @@ function setNbTab(tab) {
   if (tab === 'list') renderNotebookList(); else startReview();
 }
 $('#nbTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setNbTab(b.dataset.tab); });
-$('#nbBtn').addEventListener('click', () => { if ($('#notebook').hidden) openNotebook('list'); else closePanels(); });
+$('#nbBtn').addEventListener('click', () => { if (!isOpen($('#notebook'))) openNotebook('list'); else closePanels(); });
 $('#nbClose').addEventListener('click', () => closePanels());
 $('#vsOpen').addEventListener('click', () => openNotebook('list'));
 $('#vsReview').addEventListener('click', () => openNotebook('review'));
@@ -3569,6 +3679,55 @@ function dueText(w) {
   const days = Math.round(d / DAY);
   return days < 1 ? 'tekrar: bugün' : days === 1 ? 'tekrar: yarın' : 'tekrar: ' + days + ' gün sonra';
 }
+// A word forgotten this many times in review is a "leech" (inatçı): marked, filterable, asked with its sentence.
+const LEECH_LAPSES = 6;
+const isLeech = (w) => cardState(w).lapses >= LEECH_LAPSES;
+// Edit a notebook entry in place: the Turkish meaning (the dictionary's can be wrong or long) and a note.
+function editWordEntry(li, w) {
+  li.replaceChildren();
+  const form = el('form', 'nb-edit');
+  const tr = el('input', 'field'); tr.value = w.tr || ''; tr.placeholder = 'Anlamı (Türkçe)'; tr.setAttribute('aria-label', 'Anlamı');
+  const note = el('textarea', 'field'); note.value = w.note || ''; note.rows = 2; note.placeholder = 'Not (isteğe bağlı): örnek, hatırlatma…'; note.setAttribute('aria-label', 'Not');
+  const acts = el('div', 'nb-edit-acts');
+  const save = el('button', 'btn solid', 'Kaydet'); save.type = 'submit';
+  const cancel = el('button', 'btn', 'Vazgeç'); cancel.type = 'button';
+  cancel.addEventListener('click', () => renderNotebookList());
+  acts.append(save, cancel);
+  form.append(el('b', '', w.head), tr, note, acts);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await vocab.save(Object.assign({}, w, { tr: tr.value.trim(), note: note.value.trim() }));
+    toast('“' + w.head + '” güncellendi');
+  });
+  li.appendChild(form);
+  tr.focus(); tr.select();
+}
+// From the notebook to the sentence in the book: open the book, find the sentence, show it highlighted.
+function sentenceRegex(sentence) {
+  const words = (sentence || '').match(new RegExp(WORD_RE.source, 'g')) || [];
+  if (words.length < 2) return null;
+  return new RegExp(words.slice(0, 12).map((x) => x.replace(/['’]/g, "['’]")).join('[^\\p{L}]+'), 'iu');
+}
+async function openWordInBook(w) {
+  const re = sentenceRegex(w.sentence);
+  const recs = (await books.all()) || [];
+  const rec = recs.find((r) => r.id === w.bookId) || recs.find((r) => r.title === w.book);
+  if (!rec || !re) { toast(rec ? 'Bu kelimenin cümlesi kayıtlı değil.' : 'Bu kelimenin kitabı kitaplıkta yok.'); return; }
+  closePanels();
+  // (after "Kitaplık" the last book is still in memory but not on screen)
+  if (!book || book.record.id !== rec.id || $('#reader').hidden) await openFile(rec.file, rec);
+  if (!book || book.record.id !== rec.id || $('#reader').hidden) return;
+  const texts = await bookTexts();
+  let i = w.at && w.at.i >= 0 && w.at.i < texts.length && re.test(texts[w.at.i]) ? w.at.i : texts.findIndex((t) => re.test(t));
+  if (i < 0) { toast('Cümle kitapta bulunamadı.'); return; }
+  if (i !== cur) await goTo(i, { frac: 0 });
+  const idx = chapterIndex(), m = idx && re.exec(idx.text);
+  if (!m) return;
+  const r = rangeAt(idx, m.index, m.index + m[0].length);
+  if (!r) return;
+  scrollToRect(r.getBoundingClientRect(), 1 / 3);
+  if (window.CSS && CSS.highlights && window.Highlight) CSS.highlights.set('ayrac-search', new Highlight(r));
+}
 function renderNotebookList() {
   const ul = $('#nbItems');
   ul.replaceChildren();
@@ -3578,7 +3737,7 @@ function renderNotebookList() {
   const list = vocab.list()
     .filter((w) => !q || [w.head, w.tr, w.word, w.def].some((x) => (x || '').toLowerCase().includes(q)))
     .filter((w) => !fBook || w.book === fBook)
-    .filter((w) => !fState || (fState === 'due' ? (w.due || 0) <= now : wordState(w) === fState))
+    .filter((w) => !fState || (fState === 'due' ? (w.due || 0) <= now : fState === 'leech' ? isLeech(w) : wordState(w) === fState))
     .sort(NB_SORT[$('#nbSort').value] || NB_SORT.new);
   if (!list.length) {
     ul.appendChild(el('li', 'nb-empty', vocab.words.size ? 'Aramana ya da seçtiğin filtreye uyan kelime yok.' :'Defterin boş. Okurken bilmediğin bir kelimeye dokun ve “Deftere ekle”ye bas. Eklediğin kelimeler metinde altı çizili görünür.'));
@@ -3592,12 +3751,28 @@ function renderNotebookList() {
     if (canSpeak) { const s = el('button', 'nb-say'); s.type = 'button'; s.innerHTML = SPEAK_SVG; s.setAttribute('aria-label', w.head + ' seslendir'); s.addEventListener('click', () => say(w.head, 0.9)); top.appendChild(s); }
     if (w.cefr) top.appendChild(el('span', 'chip cefr', w.cefr));
     if (w.pos) top.appendChild(el('span', 'chip', w.pos));
+    if (isLeech(w)) { const c = el('span', 'chip leech', 'inatçı'); c.title = cardState(w).lapses + ' kez unuttun'; top.appendChild(c); }
     li.appendChild(top);
     if (w.tr) li.appendChild(el('div', 'nb-tr', w.tr));
-    if (w.sentence) { const s = el('div', 'nb-sent'); markIn(s, '“' + w.sentence + '”', w.word || w.head); li.appendChild(s); }
+    if (w.note) li.appendChild(el('div', 'nb-note', w.note));
+    if (w.sentence) {
+      const s = el('button', 'nb-sent'); s.type = 'button'; s.title = 'Kitapta bu cümleye git';
+      markIn(s, '“' + w.sentence + '”', w.word || w.head);
+      s.addEventListener('click', () => openWordInBook(w));
+      li.appendChild(s);
+    }
     const meta = el('div', 'nb-meta');
     meta.append(boxes(w.box || 1), el('span', '', dueText(w)));
     if (w.book) meta.appendChild(el('span', '', w.book));
+    const edit = el('button', 'link-btn', 'Düzenle'); edit.type = 'button';
+    edit.addEventListener('click', () => editWordEntry(li, w));
+    meta.appendChild(edit);
+    if (isLeech(w)) {
+      const again = el('button', 'link-btn', 'Baştan öğren'); again.type = 'button';
+      again.title = 'Kelimeyi yeni kelime gibi baştan sorar';
+      again.addEventListener('click', () => vocab.save(Object.assign({}, w, { ivl: 0, reps: 0, ease: 2.5, lapses: 0, due: Date.now(), box: 1 })));
+      meta.appendChild(again);
+    }
     const rm = el('button', 'link-btn', 'Sil'); rm.type = 'button';
     let t = 0;
     rm.addEventListener('click', () => {
@@ -3681,6 +3856,7 @@ function cardTypeFor(w) {
   if (mode !== 'mix') return ok.includes(mode) ? mode : 'en';
   const reps = cardState(w).reps;
   if (reps === 0) return 'en';
+  if (isLeech(w)) return ok.includes('cloze') ? 'cloze' : ok.includes('tr') ? 'tr' : 'en';  // in its sentence: context helps
   let h = 0; for (const ch of w.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return ok[(reps + h) % ok.length];
 }
@@ -3759,6 +3935,7 @@ function renderReview() {
     return s;
   };
   const t = review.type;
+  if (isLeech(w)) card.appendChild(el('div', 'fc-leech', 'İnatçı kelime: ' + st.lapses + ' kez unuttun. Cümlesine ve örneğine dikkat et.'));
   // front
   if (t === 'en') {
     card.appendChild(el('div', 'fc-word', w.head));
@@ -3798,6 +3975,7 @@ function renderReview() {
   if (w.ipa) back.appendChild(el('div', 'wc-ipa', '/' + w.ipa + '/'));
   if (t !== 'tr') back.appendChild(el('div', 'wc-tr', w.tr || '(anlam yazılmamış)'));
   if (w.def) back.appendChild(el('div', 'wc-def', w.def));
+  if (w.note) back.appendChild(el('div', 'nb-note', w.note));
   if (t !== 'en' && t !== 'cloze' && w.sentence) back.appendChild(sentence(false));
   if (w.example) { const ex = el('div', 'wc-ex', w.example); if (w.exampleTr) ex.appendChild(el('small', '', w.exampleTr)); back.appendChild(ex); }
   card.appendChild(back);
@@ -3837,18 +4015,33 @@ async function grade(g) {
 }
 
 /* ================= Panels ================= */
+// Panels close with an animation: .closing plays it, then the element is hidden. Opening cancels a closing.
+const isOpen = (n) => !n.hidden && !n.classList.contains('closing');
+function showNode(n) { clearTimeout(n._closeT); n.classList.remove('closing'); n.hidden = false; }
+function hideAnimated(n) {
+  if (!n || n.hidden || n.classList.contains('closing')) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || n.offsetParent === null && getComputedStyle(n).position !== 'fixed') { n.hidden = true; return; }
+  n.classList.add('closing');
+  const done = () => {
+    clearTimeout(n._closeT); n.removeEventListener('animationend', onEnd);
+    if (n.classList.contains('closing')) { n.classList.remove('closing'); n.hidden = true; }
+  };
+  const onEnd = (e) => { if (e.target === n) done(); };
+  n.addEventListener('animationend', onEnd);
+  n._closeT = setTimeout(done, 320);  // in case no animation runs
+}
 function closePanels(keepScrim) {
-  $('#tocDrawer').hidden = true; $('#prefs').hidden = true; $('#notebook').hidden = true; $('#searchDrawer').hidden = true;
-  $('#keysModal').hidden = true; $('#statsModal').hidden = true;
-  if (!keepScrim) $('#scrim').hidden = true;
+  for (const id of ['#tocDrawer', '#prefs', '#notebook', '#searchDrawer', '#libSettings']) hideAnimated($(id));
+  $('#keysModal').hidden = true; $('#statsModal').hidden = true; $('#wpmTest').hidden = true;
+  if (!keepScrim) hideAnimated($('#scrim'));
   $('#tocBtn').setAttribute('aria-expanded', 'false'); $('#prefsBtn').setAttribute('aria-expanded', 'false'); $('#nbBtn').setAttribute('aria-expanded', 'false');
   $('#searchBtn').setAttribute('aria-expanded', 'false');
 }
 $('#tocBtn').addEventListener('click', () => {
-  const open = $('#tocDrawer').hidden;
+  const open = !isOpen($('#tocDrawer'));
   closePanels(); closeWordCard();
   if (open) {
-    $('#tocDrawer').hidden = false; $('#scrim').hidden = false; $('#tocBtn').setAttribute('aria-expanded', 'true');
+    showNode($('#tocDrawer')); showNode($('#scrim')); $('#tocBtn').setAttribute('aria-expanded', 'true');
     setDrawerTab(drawerTab);
     renderDrawerLevel();
     const c = document.querySelector('#tocList .current'); (c || $('#tocClose')).focus();
@@ -3859,13 +4052,13 @@ $('#tocClose').addEventListener('click', () => closePanels());
 $('#scrim').addEventListener('click', () => closePanels());
 $('#prefsBtn').addEventListener('click', (e) => {
   e.stopPropagation();
-  const open = $('#prefs').hidden;
+  const open = !isOpen($('#prefs'));
   closePanels(); closeWordCard();
-  if (open) { $('#prefs').hidden = false; $('#prefsBtn').setAttribute('aria-expanded', 'true'); }
+  if (open) { showNode($('#prefs')); $('#prefsBtn').setAttribute('aria-expanded', 'true'); }
 });
 document.addEventListener('click', (e) => {
   const path = e.composedPath();
-  if (!$('#prefs').hidden && !path.includes($('#prefs')) && !path.includes($('#prefsBtn'))) closePanels();
+  if (isOpen($('#prefs')) && !path.includes($('#prefs')) && !path.includes($('#prefsBtn'))) closePanels();
   if (wc && !path.includes($('#wordCard')) && !path.includes($('#bookHost'))) closeWordCard();
 });
 document.querySelectorAll('#prefs .seg').forEach((seg) => seg.addEventListener('click', (e) => {
@@ -3875,7 +4068,7 @@ document.querySelectorAll('#prefs .seg').forEach((seg) => seg.addEventListener('
 }));
 $('#inkPick').addEventListener('input', () => changePref(() => { prefs.ink = $('#inkPick').value; }));
 // Settings on the start screen (library)
-function openLibSettings() { applyPrefs(); renderLibExtras(); $('#libSettings').hidden = false; $('#libSettingsClose').focus(); }
+function openLibSettings() { applyPrefs(); renderLibExtras(); showNode($('#libSettings')); $('#libSettingsClose').focus(); }
 function renderLibExtras() {
   $('#goalOut').textContent = (Number(prefs.goal) || 15) + ' dk';
   const m = measuredWpm();
@@ -3934,8 +4127,8 @@ $('#wpmUse').addEventListener('click', () => {
 });
 $('#wpmClose').addEventListener('click', () => { $('#wpmTest').hidden = true; });
 $('#libSettingsBtn').addEventListener('click', openLibSettings);
-$('#libSettingsClose').addEventListener('click', () => { $('#libSettings').hidden = true; });
-$('#libSettings').addEventListener('click', (e) => { if (e.target === $('#libSettings')) $('#libSettings').hidden = true; });
+$('#libSettingsClose').addEventListener('click', () => hideAnimated($('#libSettings')));
+$('#libSettings').addEventListener('click', (e) => { if (e.target === $('#libSettings')) hideAnimated($('#libSettings')); });
 document.querySelectorAll('#libSettings .seg').forEach((seg) => seg.addEventListener('click', (e) => {
   const b = e.target.closest('button'); if (!b) return;
   prefs[seg.dataset.pref] = b.dataset.v;
@@ -3973,7 +4166,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (e.key === '?' && !e.ctrlKey && !e.altKey) { e.preventDefault(); openKeys(); return; }
-  if ($('#reader').hidden || !$('#tocDrawer').hidden) return;
+  if ($('#reader').hidden || isOpen($('#tocDrawer'))) return;
   if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goTo(cur + 1); return; }
   if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goTo(cur - 1); return; }
   if ((e.key === 'b' || e.key === 'B') && !e.ctrlKey && !e.altKey && !e.metaKey) { e.preventDefault(); toggleBookmark(); return; }
@@ -4053,6 +4246,7 @@ async function openFile(file, saved) {
       file = await books.file(file.lazyId);
       if (!file) throw new Error('Kitap dosyası bulunamadı. Kitaplıktan kaldırıp yeniden açmayı dene.');
     }
+    if (isTextFile(file)) file = await textToEpub(file);
     const buf = await file.arrayBuffer();
     const z = await openZip(buf);
     stopReading();
@@ -4207,7 +4401,7 @@ window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth -
 window.addEventListener('drop', (e) => {
   if (!hasFiles(e)) return;
   e.preventDefault(); dragDepth = 0; $('#dropOverlay').hidden = true; $('#dropZone').classList.remove('over');
-  const f = Array.from(e.dataTransfer.files).find((x) => /\.epub$/i.test(x.name)) || e.dataTransfer.files[0];
+  const f = Array.from(e.dataTransfer.files).find((x) => /\.(epub|txt)$/i.test(x.name)) || e.dataTransfer.files[0];
   if (f) openFile(f);
 });
 
@@ -4444,7 +4638,8 @@ window.ayracBack = () => {
   if (!$('#devPanel').hidden || !$('#aiSetup').hidden) { $('#devPanel').hidden = true; $('#aiSetup').hidden = true; return true; }
   if (wc) { closeWordCard(); return true; }
   if (pick.on) { setPickMode(false); return true; }
-  if (['#tocDrawer', '#notebook', '#searchDrawer', '#prefs'].some((s) => !$(s).hidden)) { closePanels(); return true; }
+  if (!$('#wpmTest').hidden) { $('#wpmTest').hidden = true; return true; }
+  if (['#tocDrawer', '#notebook', '#searchDrawer', '#prefs', '#libSettings', '#statsModal', '#keysModal', '#noteModal'].some((s) => isOpen($(s)))) { $('#noteModal').hidden = true; closePanels(); return true; }
   if (!$('#reader').hidden) { showLibrary(); return true; }
   return false;
 };

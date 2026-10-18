@@ -1,0 +1,26 @@
+{
+  "_about": "Dictionary test cases shared by desktop/tests/test_ayrac.py (Python) and android/app/src/test (Java), so both dictionaries give the same answers. Fields: word, prev, next = the lookup; phrase = must be among the found phrases; head = the leading entry; head_or_also = head or the 'also' entry; tr = among the Turkish translations; found = false for unknown words; cefr = the estimated level. Profile cases: lemma, zipf_min, missing.",
+  "lookup": [
+    {"word": "take", "prev": ["will"], "next": ["off", "the"], "phrase": "take off"},
+    {"word": "took", "prev": ["plane"], "next": ["off", "at"], "phrase": "take off"},
+    {"word": "off", "prev": ["plane", "took"], "next": ["at"], "phrase": "take off"},
+    {"word": "take", "prev": ["please"], "next": ["it", "off"], "phrase": "take off"},
+    {"word": "off", "prev": ["take", "it"], "next": [], "phrase": "take off"},
+    {"word": "looked", "prev": ["Lewis", "had"], "next": ["after", "her"], "head": "look", "phrase": "look after"},
+    {"word": "travelled", "head": "travel", "tr": "seyahat etmek"},
+    {"word": "children", "head_or_also": "child"},
+    {"word": "charmer", "prev": ["snake"], "next": [], "head": "charmer", "phrase": "snake charmer"},
+    {"word": "zzzzqx", "found": false},
+    {"word": "the", "cefr": "A1"},
+    {"word": "travel", "cefr": "A2"},
+    {"word": "impressed", "cefr": "B1"},
+    {"word": "charmer", "cefr": "C2"}
+  ],
+  "profile": [
+    {"word": "took", "lemma": "take"},
+    {"word": "travelled", "lemma": "travel"},
+    {"word": "children", "lemma": "child"},
+    {"word": "The", "lemma": "the", "zipf_min": 7},
+    {"word": "zzzzqx", "missing": true}
+  ]
+}

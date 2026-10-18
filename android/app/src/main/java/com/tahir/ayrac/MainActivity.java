@@ -104,7 +104,7 @@ public class MainActivity extends Activity {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = cb;
                 Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
-                        .putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/epub+zip", "application/octet-stream", "application/json"});
+                        .putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/epub+zip", "application/octet-stream", "application/json", "text/plain"});
                 startActivityForResult(i, REQ_FILE_INPUT);
                 return true;
             }
@@ -325,6 +325,10 @@ public class MainActivity extends Activity {
                             : d.lookup(it.optString("word"), it.optJSONArray("prev"), it.optJSONArray("next")));
                 }
                 return out;
+            }
+            case "dict_profile": {
+                Dictionary d = dictionary();
+                return d == null ? null : d.profile(a.optJSONArray(0));
             }
             case "open_cambridge":
                 openExternal(Uri.parse("https://dictionary.cambridge.org/dictionary/english-turkish/" + Uri.encode(String.valueOf(str(a, 0)).trim().toLowerCase(Locale.ROOT))));
