@@ -8,3 +8,15 @@ desktop/releases/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Android (generated, local or secret)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/keystore.jks
+android/keystore.properties
+android/releases/
+android/app/src/main/assets/
+android/app/src/main/res/mipmap-*/
+*.apk

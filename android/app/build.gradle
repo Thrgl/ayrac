@@ -1,0 +1,60 @@
+plugins {
+    id 'com.android.application'
+}
+
+// One version number for the whole project (desktop and Android): desktop/VERSION.
+def ayracVersion = rootProject.file('../desktop/VERSION').text.trim()
+def parts = ayracVersion.tokenize('.').collect { it.toInteger() } + [0, 0, 0]
+def ayracCode = parts[0] * 10000 + parts[1] * 100 + parts[2]
+
+// Release signing: android/keystore.properties (not in git) points at the keystore made by android/build.ps1.
+def keyProps = new Properties()
+def keyFile = rootProject.file('keystore.properties')
+if (keyFile.exists()) keyFile.withInputStream { keyProps.load(it) }
+
+android {
+    namespace 'com.tahir.ayrac'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.tahir.ayrac'
+        minSdk 26
+        targetSdk 34
+        versionCode ayracCode
+        versionName ayracVersion
+    }
+
+    signingConfigs {
+        release {
+            if (keyFile.exists()) {
+                storeFile rootProject.file(keyProps['storeFile'])
+                storePassword keyProps['storePassword']
+                keyAlias keyProps['keyAlias']
+                keyPassword keyProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keyFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/*.kotlin_module', 'META-INF/versions/**', 'META-INF/LICENSE*', 'META-INF/NOTICE*', 'META-INF/DEPENDENCIES']
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'com.anthropic:anthropic-java:2.34.0'
+}

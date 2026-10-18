@@ -167,6 +167,40 @@ Invoke-RestMethod http://127.0.0.1:9333/json    # sayfanın webSocketDebuggerUrl
 
 ---
 
+## Android uygulaması (2.0.0+)
+
+Aynı `ayrac.html`, bir Android WebView'ın içinde çalışır. `android\web\android-bridge.js`, sayfaya masaüstündekiyle aynı `window.pywebview.api`'yi verir; her çağrı `MainActivity.Native.call(id, metod, argümanlar)` ile Java'ya gider, cevap `window.__ayracResolve` ile döner. Sayfa `window.AYRAC_PLATFORM = "android"` görür (metinler "bu telefonda", geri tuşu `window.ayracBack`).
+
+```
+android/
+├── build.ps1              Derleme → android\releases\Ayrac-<sürüm>.apk
+├── make_icons.py          Başlatıcı simgeleri (res\mipmap-*)
+├── web/android-bridge.js  Köprü + Android sesli okuma için speechSynthesis yerine geçen kod
+├── app/build.gradle       Sürüm desktop\VERSION'dan okunur (tek sürüm numarası)
+└── app/src/main/java/com/tahir/ayrac/
+    ├── MainActivity.java  WebView, köprü metodları, dosya seçme/kaydetme, "Birlikte aç", geri tuşu
+    ├── Store.java         data.json, books\, logs\, yedek ZIP (masaüstüyle aynı biçim)
+    ├── Dictionary.java    ayrac_app.Dictionary'nin Java karşılığı (aynı kurallar)
+    ├── Speech.java        Android TextToSpeech (kelime vurgusu: onRangeStart)
+    └── Claude.java        Anthropic Java SDK (isteğe bağlı API anahtarıyla)
+```
+
+**Araçlar (bir kez):** JDK 17 ve Gradle 8.11.1 `%USERPROFILE%\Tools` içinde, Android SDK `%USERPROFILE%\Android\Sdk` içinde (platform 35, build-tools 35.0.0; yalnızca `android-sdk-license` kabul edildi). Bunlar AppData dışında, Claude terminalinin yönlendirmesinden etkilenmez.
+
+**Derleme:** önce masaüstü sözlüğü ve venv hazır olmalı (`desktop\build.ps1` bir kez çalışmış olsun), sonra:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File android\build.ps1
+```
+
+**İmzalama anahtarı:** ilk derlemede `android\keystore.jks` ve `android\keystore.properties` oluşur (git'e girmez). **Bu ikisini yedekle:** kaybolursa telefondaki uygulama güncellenemez, kaldırıp yeniden kurmak gerekir (veriler silinir; önce uygulamadan yedek al).
+
+**Telefona kurma:** APK'yı telefona at (USB, Drive, e-posta), dosyaya dokun; ilk seferde "bilinmeyen kaynaklardan yükleme" izni istenir. Güncelleme: yeni APK'yı aynı şekilde kur (veriler korunur).
+
+**Veriler telefonda:** uygulamanın kendi alanında (`/data/data/com.tahir.ayrac/files/Ayrac`). Bilgisayara taşımak için: Ayraç'ta "Yedek al" → ZIP → bilgisayarda "Yedekten yükle" (aynı biçim). Eşitleme (Firebase) 2.1.0'da.
+
+**Telefonda hata ayıklama:** geliştirici modu açıkken WebView hata ayıklaması açılır; telefon USB'yle bağlıyken bilgisayarda Chrome'da `chrome://inspect`.
+
 ## Geliştirici modu
 
 Kitaplığın altındaki **sürüm numarasına 5 kez dokun** (ya da **Ctrl+Shift+D**). Panelde: sürüm, program yolu, veri klasörü, kitap sayısı, sözlük yolu, günlük. Düğmeler: günlüğü aç, veri klasörünü aç, kitaplığı yenile. Geliştirici modu açıkken uygulama yeniden başlatılınca **sağ tık → İncele** ile web inceleyicisi açılır.
@@ -223,7 +257,7 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 ## Yol haritası (bekleyen)
 
-- **Android uygulaması + bilgisayarla eşitleme** (planlandı, onay bekliyor):
+- ✅ 2.0.0 — **Android uygulaması** (yukarıdaki "Android uygulaması" bölümü). Kalan: **bilgisayarla eşitleme** (2.1.0, Firebase projesi bekleniyor):
   - Okuyucu sayfası bir Android WebView uygulamasına (APK) gömülür; köprü (`window.pywebview.api` ile aynı metodlar) Java'da yazılır, sözlük SQLite olarak APK'da, sesli okuma Android TTS ile.
   - Eşitleme: Firebase (ücretsiz Spark planı) — e-posta/şifre girişi + Firestore. Kitaplar parçalara bölünerek, defter/okuma yeri/okundu bilgisi/ayarlar belge olarak. Eşitleme kodu `ayrac.html` içinde ortak yazılır, böylece masaüstü ve telefon aynı mantığı kullanır.
   - Gerekenler: Android geliştirme araçları (~1,5 GB, JDK + Android SDK + Gradle; Android SDK lisansının kabulü) ve kullanıcının açacağı Firebase projesi (`apiKey`, `projectId`).
