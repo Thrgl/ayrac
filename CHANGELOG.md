@@ -2,6 +2,9 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.6.2 — 2026-10-18
+- Düzeltme: telefonda başlangıç ekranının Ayarlar penceresinde (ve öteki pencerelerde) yukarı-aşağı kaydırınca pencere yerine arkadaki kitaplık kayıyordu. Pencere açıkken arkası artık kilitli, kaydırma pencerenin içinde kalır; panellerin ve listelerin sonuna gelince de kaydırma arkaya geçmez.
+
 ## 2.6.1 — 2026-10-18
 - Bölüm başındaki zor kelimeler artık açılır-kapanır: tek satırlık başlık ("Bu bölümde zor olabilecek 12 kelime · marble, tremble, manuscript ve 9 kelime daha"); dokununca liste aşağı doğru açılır, tekrar dokununca kapanır, ikisi de animasyonlu. Açık mı kapalı mı bıraktığın hatırlanır. "Kapat" ile de solarak kaybolur.
 
