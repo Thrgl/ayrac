@@ -289,7 +289,7 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 | ✅ 2.1.0 — **Kalan süre** | Alt çubukta "Bölümün bitmesine ~6 dk" (okuma hızı kullanıcının kendi geçmişinden hesaplanır). | S |
 | ✅ 2.1.0 — **Sayfa modu** | Kaydırma yerine sütunlu sayfa çevirme (CSS columns). Bazı okurlar için daha az yorucu. | M |
 | ✅ 2.1.0 — **Dipnot açılır pencereleri** | EPUB'daki `epub:type="noteref"` bağlantılarını sayfa atlamadan kart içinde göstermek. | S |
-| ✅ 2.1.0 — **Ekran kenarına dokunarak sayfa** | Dokunmatik ekran / ileride Android için sol-sağ kenar dokunuşları. | S |
+| ✅ 2.1.0 — **Ekran kenarına dokunarak sayfa** | Dokunmatik ekran / ileride Android için sol-sağ kenar dokunuşları. 2.4.0'da Android'den kaldırıldı: kenardaki kelimeye dokununca sayfa değişiyordu; telefonda yerine parmakla yatay kaydırma (her iki düzende, yalnız dokunmatik/kalem). Bilgisayarda eski davranış sürer (`ANDROID` sabiti, `ayrac.html` "Turning pages"). | S |
 | ✅ 2.1.0 — **Klavye kısayolları listesi** | `?` tuşuyla kısayol kartı (Alt+←/→, Boşluk, tekrar ekranındaki ←/→ zaten var ama görünmüyor). | S |
 
 ### Kelime öğrenme

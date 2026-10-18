@@ -736,8 +736,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <button type="button" data-v="pages">Sayfa sayfa</button>
         </div>
       </div>
-      <div class="setting"><span>Kenara dokununca sayfa çevir</span>
+      <div class="setting" id="edgeTapRow"><span>Kenara dokununca sayfa çevir</span>
         <div class="seg" data-pref="edgeTap">
+          <button type="button" data-v="on">Açık</button>
+          <button type="button" data-v="off">Kapalı</button>
+        </div>
+      </div>
+      <div class="setting" id="swipeRow" hidden><span>Parmakla sağa / sola kaydırınca sayfa çevir</span>
+        <div class="seg" data-pref="swipe">
           <button type="button" data-v="on">Açık</button>
           <button type="button" data-v="off">Kapalı</button>
         </div>
@@ -1389,7 +1395,7 @@ const FONTS = {
   book: '',
 };
 const prefs = Object.assign({ theme: 'auto', font: 'literata', fs: 19, lh: '1.65', width: '38em', level: 'B1', accent: 'en-US', rate: '0.9', mark: 'on', goal: '15', newPerDay: '20', cardMode: 'mix',
-  layout: 'scroll', edgeTap: PLATFORM === 'android' ? 'on' : 'off', preWords: 'on', ink: 'auto', voice: '', shadow: 'off' }, store.get('prefs', {}));
+  layout: 'scroll', edgeTap: 'off', swipe: 'on', preWords: 'on', ink: 'auto', voice: '', shadow: 'off' }, store.get('prefs', {}));
 function applyPrefs() {
   const r = $('#reader');
   if (!r.hidden) document.body.dataset.read = prefs.theme;
@@ -3756,7 +3762,12 @@ document.addEventListener('keydown', (e) => {
   else if (paged() && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); turnPage(e.key === 'ArrowDown' ? 1 : -1); }
 });
 
-/* Page mode: the wheel and horizontal swipes turn pages; taps near the left/right edge turn pages when enabled. */
+/* Turning pages. Android: a horizontal finger swipe in both layouts (right-to-left = next); taps never turn
+   pages, a tap is always for the word under the finger. Desktop: the wheel and swipes in page mode, keys, and
+   optional taps near the left/right edge. */
+const ANDROID = PLATFORM === 'android';
+if (ANDROID) scroller.style.touchAction = 'pan-y';  // horizontal swipes stay with the page
+$('#swipeRow').hidden = !ANDROID; $('#edgeTapRow').hidden = ANDROID;
 let wheelAt = 0, swipe = null, swallowClickUntil = 0;
 scroller.addEventListener('wheel', (e) => {
   if (!paged()) return;
@@ -3766,18 +3777,36 @@ scroller.addEventListener('wheel', (e) => {
   wheelAt = Date.now();
   turnPage(d > 0 ? 1 : -1);
 }, { passive: false });
-scroller.addEventListener('pointerdown', (e) => { swipe = { x: e.clientX, y: e.clientY, t: Date.now() }; });
-scroller.addEventListener('pointerup', (e) => {
-  if (!swipe || !paged()) { swipe = null; return; }
-  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
-  if (Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy) && Date.now() - swipe.t < 800) {
+if (ANDROID) {
+  scroller.addEventListener('pointerdown', (e) => {
+    swipe = e.pointerType === 'mouse' || prefs.swipe === 'off' || !e.isPrimary ? null : { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now() };
+  });
+  scroller.addEventListener('pointercancel', () => { swipe = null; });  // the browser took over (vertical scrolling)
+  scroller.addEventListener('pointerup', (e) => {
+    const s = swipe;
+    swipe = null;
+    if (!s || s.id !== e.pointerId || pick.on) return;
+    const dx = e.clientX - s.x, dy = e.clientY - s.y;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < 1.6 * Math.abs(dy) || Date.now() - s.t > 700) return;
+    const sel = shadow.getSelection ? shadow.getSelection() : document.getSelection();
+    if (sel && !sel.isCollapsed && String(sel).trim()) return;  // finishing a text selection, not a swipe
     swallowClickUntil = Date.now() + 400;
     turnPage(dx < 0 ? 1 : -1);
-  }
-  swipe = null;
-});
+  });
+} else {
+  scroller.addEventListener('pointerdown', (e) => { swipe = { x: e.clientX, y: e.clientY, t: Date.now() }; });
+  scroller.addEventListener('pointerup', (e) => {
+    if (!swipe || !paged()) { swipe = null; return; }
+    const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy) && Date.now() - swipe.t < 800) {
+      swallowClickUntil = Date.now() + 400;
+      turnPage(dx < 0 ? 1 : -1);
+    }
+    swipe = null;
+  });
+}
 function edgeTap(e) {
-  if (prefs.edgeTap !== 'on') return false;
+  if (ANDROID || prefs.edgeTap !== 'on') return false;
   const s = scroller.getBoundingClientRect(), x = (e.clientX - s.left) / s.width;
   if (x > 0.12 && x < 0.88) return false;
   const sel = shadow.getSelection ? shadow.getSelection() : document.getSelection();

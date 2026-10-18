@@ -2,6 +2,11 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.4.0 — 2026-10-18 (yalnız Android)
+- Telefonda sayfa çevirme artık kaydırmayla: parmağını sağdan sola kaydır, sonraki sayfa; soldan sağa, önceki sayfa. Hem "Kaydırma" hem "Sayfa sayfa" düzeninde çalışır. Ayarlar → Okuma → "Parmakla sağa / sola kaydırınca sayfa çevir".
+- Telefonda kenara dokunarak sayfa çevirme kaldırıldı: ekranın kenarına yakın bir kelimeye dokununca anlamı yerine sayfa değişiyordu. Dokunuş artık her zaman kelime içindir.
+- Bilgisayar sürümü değişmedi (2.3.1'de kalır): kenar dokunuşu ayarı, sayfa modunda kaydırma ve fare tekerleği, ok tuşları aynı.
+
 ## 2.3.1 — 2026-10-18
 - Düzeltme: telefonda (ve bilgisayarda) sayfanın üst ve yan kenarlarında açık renkli ince bir şerit kalıyordu; tema değişince o şerit değişmiyordu. Sebep sayfanın varsayılan 8 piksellik kenar boşluğuydu. Artık sayfa ekranı tam kaplar ve kenarlar okuma temasının rengini alır. Aynı boşluk alt çubuğun en altını da biraz kesiyordu, o da düzeldi.
 
