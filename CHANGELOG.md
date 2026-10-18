@@ -2,6 +2,9 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.3.1 — 2026-10-18
+- Düzeltme: telefonda (ve bilgisayarda) sayfanın üst ve yan kenarlarında açık renkli ince bir şerit kalıyordu; tema değişince o şerit değişmiyordu. Sebep sayfanın varsayılan 8 piksellik kenar boşluğuydu. Artık sayfa ekranı tam kaplar ve kenarlar okuma temasının rengini alır. Aynı boşluk alt çubuğun en altını da biraz kesiyordu, o da düzeldi.
+
 ## 2.3.0 — 2026-10-17
 - Ses seçimi (Ayarlar → Ses): bilgisayardaki İngilizce sesler listelenir; Microsoft'un doğal ("Natural") sesleri başta ve "doğal" diye işaretli. "Otomatik" en iyi sesi seçer; "Dene" ile dinlenir. (Telefonda Android'in kendi sesi kullanılır.)
 - Gölgeleme (Ayarlar → Dinlerken tekrar et): sesli okumada her cümleden sonra durur, sen tekrar edersin. "Bekle, devam et": cümlenin uzunluğu kadar bekleyip devam eder (çubuk kalan süreyi gösterir). "Ben geçeyim": "Devam"a basana kadar bekler. "Tekrar dinle" aynı cümleyi yeniden okur. Klavye: Enter devam, R tekrar.

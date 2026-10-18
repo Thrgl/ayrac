@@ -47,8 +47,9 @@ body[data-read] { --sel: color-mix(in srgb, var(--rlink) 26%, transparent); }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html, body { height: 100%; }
+html, body { height: 100%; margin: 0; }  /* no default 8px body margin: the Android and desktop wrappers add none */
 body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); font-size: 15px; overflow: hidden; }
+body[data-read] { background: var(--paper); }  /* while reading, nothing around the page shows the library colour */
 button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
