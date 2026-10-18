@@ -213,10 +213,15 @@ final class NeuralVoice {
         return maker.submit(() -> engine(vid).generate(text, 0, rate > 0 ? rate : 1f));
     }
 
+    /** Same key for a prepared sentence and the one asked for (rate rounded: 0.9 and 0.89999 are one speed). */
+    private String key(String text, float rate) {
+        return selected + "|" + Math.round(rate * 100) + "|" + text.trim();
+    }
+
     /** Makes a coming sentence ahead of time (the page knows what comes next). */
     void prefetch(String text, float rate) {
         if (selected == null || text == null || text.trim().isEmpty()) return;
-        String key = selected + "|" + rate + "|" + text;
+        String key = key(text, rate);
         if (ahead.containsKey(key)) return;
         if (ahead.size() > 4) ahead.clear();
         ahead.put(key, make(text, rate));
@@ -224,7 +229,7 @@ final class NeuralVoice {
 
     /** Speaks one sentence; events as Android's TTS would send them: start, end, error. */
     void speak(String id, String text, float rate, Speech.Events events) {
-        String key = selected + "|" + rate + "|" + text;
+        String key = key(text, rate);
         Future<GeneratedAudio> f = ahead.remove(key);
         Future<GeneratedAudio> audio = f != null ? f : make(text, rate);
         int gen = generation;

@@ -2,6 +2,9 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.7.1 — 2026-10-18
+- Düzeltme: yapay zekâ sesinde her cümleden önce bekleme oluyordu. Önceden hazırlanan cümle, okunacak cümleyle eşleşmiyordu (sondaki boşluk farkı); her cümle baştan üretiliyor, üstelik hazırlanan cümlelerin arkasında sıra bekliyordu. Artık önce okunan cümle, sonra sonraki ikisi hazırlanır; bilgisayarda ölçülen cümle arası bekleme ~2 ms.
+
 ## 2.7.0 — 2026-10-18
 - Yapay zekâ sesiyle okuma (sesli kitap gibi): "Aa" → İngilizce çalışma → "Okuyan ses" → "Yapay zekâ sesi". Dört ses: Lessac (Amerikan kadın), Ryan (Amerikan erkek), Alba (İngiliz kadın), Northern (İngiliz erkek). İstediğin sesi bir kez indirirsin (~64 MB); ses bu cihazda üretilir, internet gerekmez, ücretsizdir. Bilgisayarda ve telefonda; telefonda ekran kapalıyken de okur.
 - Okurken sonraki iki cümle önceden hazırlanır, cümleler arasında bekleme olmaz. Okuma hızı, gölgeleme, kelimeyi dinle de bu sesle çalışır. (Bu seste kelime kelime vurgu yok; okunan paragraf vurgulanır.)

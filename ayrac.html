@@ -2443,7 +2443,7 @@ function prefetchNext() {  // the next sentences, so they are ready when this on
   for (const n of [1, 2]) {
     const c = tts.chunks[tts.i + n];
     if (!c) break;
-    if (neuralInPage()) neuralFetch(c.text);
+    if (neuralInPage()) neuralFetch(c.text.trim());
     else if (PLATFORM === 'android' && neuralWanted() && window.AyracNative && AyracNative.prefetch) AyracNative.prefetch(c.text.trim(), Number(prefs.rate) || 1);
   }
 }
@@ -2589,9 +2589,13 @@ function speakChunk() {
     else { tts.i++; speakChunk(); }
   };
   showShadow(false);
-  prefetchNext();
+  // The sentence is always sent trimmed, the same way the next ones are prepared ahead (prefetchNext):
+  // otherwise the prepared audio never matches and every sentence is made again (a wait before each one).
+  const text = c.text.trim();
   if (neuralInPage()) {
-    neuralFetch(c.text).then((r) => {
+    const current = neuralFetch(text);  // this sentence first, then the next ones
+    prefetchNext();
+    current.then((r) => {
       if (my !== tts.token || !tts.on) return;
       if (!r || !r.ok) { stopReading(); toast('Yapay zekâ sesi okuyamadı' + (r && r.message ? ': ' + r.message : '.')); return; }
       const a = neural.audio;
@@ -2601,10 +2605,11 @@ function speakChunk() {
     });
     return;
   }
-  const u = utter(c.text);
+  const u = utter(text);
+  const lead = c.text.length - c.text.trimStart().length;  // boundary indexes count from the trimmed text
   u.onboundary = (e) => {
     if (my !== tts.token || (e.name && e.name !== 'word')) return;
-    const at = c.start + e.charIndex;
+    const at = c.start + lead + e.charIndex;
     const w = wordsOf(c.block).find((x) => x.e > at);
     tts.marks.filter((m) => m.localName === 'x-w').forEach((m) => m.classList.remove('tts-word'));
     if (w) { w.node.classList.add('tts-word'); tts.marks.push(w.node); }
@@ -2615,6 +2620,7 @@ function speakChunk() {
     stopReading(); toast('Sesli okuma başlatılamadı. Tarayıcında İngilizce ses yüklü olmayabilir.');
   };
   speechSynthesis.speak(u);
+  prefetchNext();  // after this sentence is on its way (the phone makes them one by one, in order)
 }
 /* Shadowing: after each sentence the reading stops so you can say it aloud yourself, then goes on
    (after about as long as the sentence takes, or when you press "Devam"). */

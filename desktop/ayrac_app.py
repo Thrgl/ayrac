@@ -358,6 +358,7 @@ class Voices:
     def __init__(self):
         self._tts = {}
         self._lock = threading.Lock()
+        self._gen_lock = threading.Lock()
         self.progress = {}  # voice id -> {"state": downloading|extracting|ready|error, "done", "total", "message"}
 
     @staticmethod
@@ -428,8 +429,11 @@ class Voices:
             return self._tts[vid]
 
     def wav(self, vid, text, speed):
-        """Speak text with voice vid; returns (WAV bytes, seconds)."""
-        audio = self._engine(vid).generate(text, sid=0, speed=float(speed or 1.0))
+        """Speak text with voice vid; returns (WAV bytes, seconds). One at a time: the bridge calls this from
+        several threads (the sentence being read and the ones prepared ahead), and the engine is shared."""
+        engine = self._engine(vid)
+        with self._gen_lock:
+            audio = engine.generate(text, sid=0, speed=float(speed or 1.0))
         pcm = array("h", (int(max(-1.0, min(1.0, s)) * 32767) for s in audio.samples)).tobytes()
         buf = io.BytesIO()
         with wave.open(buf, "wb") as w:
