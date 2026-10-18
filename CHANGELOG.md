@@ -2,6 +2,10 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.3.0 — 2026-10-17
+- Ses seçimi (Ayarlar → Ses): bilgisayardaki İngilizce sesler listelenir; Microsoft'un doğal ("Natural") sesleri başta ve "doğal" diye işaretli. "Otomatik" en iyi sesi seçer; "Dene" ile dinlenir. (Telefonda Android'in kendi sesi kullanılır.)
+- Gölgeleme (Ayarlar → Dinlerken tekrar et): sesli okumada her cümleden sonra durur, sen tekrar edersin. "Bekle, devam et": cümlenin uzunluğu kadar bekleyip devam eder (çubuk kalan süreyi gösterir). "Ben geçeyim": "Devam"a basana kadar bekler. "Tekrar dinle" aynı cümleyi yeniden okur. Klavye: Enter devam, R tekrar.
+
 ## 2.2.0 — 2026-10-17
 - Kitabın seviyesi: kitap açılınca sözlükteki kelime sıklıklarından tahmini seviye hesaplanır (kelimelerin %95'ini kapsayan seviye). Kitaplıkta kapakta "≈B1" rozeti; İçindekiler panelinde "seviyene uygun / biraz zorlayıcı / zor" ve senin seviyendeki kelimelerin oranı.
 - Bölüm başında zor kelimeler: okunmamış bir bölüme başlarken, seviyenin üstündeki en sık 12 kelime anlamlarıyla gösterilir; "Deftere", "Biliyorum" ya da "Kalanların hepsini deftere ekle". Ayarlar → "Bölüm başında zor kelimeler" ile kapatılabilir.
