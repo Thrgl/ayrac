@@ -314,6 +314,8 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 ### Claude ile
 
+(2026-10-17: kullanıcının isteğiyle şimdilik ertelendi.)
+
 | Ne | Açıklama | Emek |
 |---|---|---|
 | **Cümlenin dilbilgisi açıklaması** | Kelime kartında "Bu cümleyi açıkla": zaman, yapı, deyim, Türkçe açıklama. | S |
@@ -325,8 +327,8 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 
 | Ne | Açıklama | Emek |
 |---|---|---|
-| **Doğal (neural) sesler** | WebView2'de Microsoft'un "Natural" sesleri çıkabiliyor; ses seçici eklenip en iyi ses varsayılan yapılmalı. | S |
-| **Cümleyi tekrarla / gölgeleme** | Sesli okumada her cümleden sonra durup kullanıcının tekrar etmesini bekleyen mod. | M |
+| ✅ 2.3.0 — **Doğal (neural) sesler** | WebView2'de Microsoft'un "Natural" sesleri çıkabiliyor; ses seçici eklenip en iyi ses varsayılan yapılmalı. | S |
+| ✅ 2.3.0 — **Cümleyi tekrarla / gölgeleme** | Sesli okumada her cümleden sonra durup kullanıcının tekrar etmesini bekleyen mod. | M |
 
 ### Dağıtım (Windows)
 
