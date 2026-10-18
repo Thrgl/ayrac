@@ -45,7 +45,7 @@ Ayrac/
 |---|---|
 | `kv_all`, `kv_set`, `kv_del` | Ayarlar, kelime defteri, okuma konumları, notlar → `%APPDATA%\Ayrac\data.sqlite` (tablo `kv`; 2.1.0 öncesindeki `data.json` ilk açılışta taşınır ve `.bak` olarak saklanır) |
 | `books_list`, `book_meta`, `book_put`, `book_file`, `book_url`, `book_delete` | Kitaplık → `%APPDATA%\Ayrac\books\<sha1>.epub / .json / .cover`. Kitap ve kapaklar köprüden base64 geçmez: `127.0.0.1` üzerinde rastgele portta, rastgele anahtarlı adresle (`BookServer`) dosya olarak verilir |
-| `dict_info`, `dict_lookup`, `dict_lookup_many` | Çevrimdışı sözlük (kök bulma, phrasal verb tespiti) |
+| `dict_info`, `dict_lookup`, `dict_lookup_many`, `dict_profile` | Çevrimdışı sözlük (kök bulma, phrasal verb tespiti); `dict_profile` çok sayıda kelimenin kökünü ve sıklığını tek seferde verir (kitabın seviyesi, bölüm öncesi zor kelimeler; yalnız masaüstü) |
 | `open_cambridge` | Cambridge Dictionary sayfasını ayrı bir uygulama penceresinde açar |
 | `ai_status`, `ai_set_key`, `ai_clear_key`, `ai_set_model`, `ask` | İsteğe bağlı Claude (Anthropic API). Anahtar Windows Kimlik Bilgileri Yöneticisi'nde |
 | `initial_file` | Komut satırından verilen .epub (Birlikte aç) |
@@ -169,7 +169,7 @@ Invoke-RestMethod http://127.0.0.1:9333/json    # sayfanın webSocketDebuggerUrl
 
 ## Android uygulaması (2.0.0+)
 
-Aynı `ayrac.html`, bir Android WebView'ın içinde çalışır. `android\web\android-bridge.js`, sayfaya masaüstündekiyle aynı `window.pywebview.api`'yi verir; her çağrı `MainActivity.Native.call(id, metod, argümanlar)` ile Java'ya gider, cevap `window.__ayracResolve` ile döner. Sayfa `window.AYRAC_PLATFORM = "android"` görür (metinler "bu telefonda", geri tuşu `window.ayracBack`).
+Aynı `ayrac.html`, bir Android WebView'ın içinde çalışır. `android\web\android-bridge.js`, sayfaya masaüstündekiyle aynı `window.pywebview.api`'yi verir; her çağrı `MainActivity.Native.call(id, metod, argümanlar)` ile Java'ya gider, cevap `window.__ayracResolve` ile döner. Sayfa `window.AYRAC_PLATFORM = "android"` görür (metinler "bu telefonda", geri tuşu `window.ayracBack`). Telefona özel köprü metodu `set_bar_colors(renk, koyu)`: pencere, durum çubuğu ve alt gezinme çubuğu sayfanın arka plan rengini alır (tema değişince sayfa çağırır). Kitabın seviyesi ve bölüm öncesi zor kelimeler (`dict_profile`) şimdilik yalnız masaüstünde.
 
 ```
 android/
@@ -300,17 +300,17 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 | ✅ 1.8.0 — **Ters yön ve yazma kartları** | Şu an sadece İngilizce → Türkçe. Türkçe → İngilizce, boşluk doldurma (kitaptaki cümlede kelime gizli) ve "dinle, yaz" kartları kalıcı öğrenmeyi artırır. | M |
 | ✅ 1.7.0 — **Anki / CSV dışa aktarma** | Defteri `kelime; anlam; cümle; IPA` olarak CSV ya da Anki paketi (`.apkg`) yapmak. Telefonda Anki kullananlar için Android uygulaması bitene kadar köprü olur. | S |
 | ✅ 1.7.0 — **Seviye etiketi (CEFR) sözlükten** | Masaüstünde sözlük modu `cefr: ''` döndürüyor; etiket sadece Claude'dan geliyor. `build_dict.py` zaten `wordfreq` kullanıyor: Zipf sıklığından kabaca A1–C2 tahmini `entries`'e yazılabilir. | S |
-| **Kitabın zorluğu** | Kitap eklenince "kelimelerin %94'ü ilk 3000 kelimede → B1 için uygun" gibi bir özet; kitaplıkta kapak altında seviye rozeti. | M |
-| **Bölüm öncesi kelime listesi** | Bölüme başlamadan önce, kullanıcının seviyesine göre bilinmesi muhtemel olmayan 10–15 kelimeyi gösterip tek dokunuşla deftere ekleme. | M |
-| **Bilinen kelimeler** | "Bunu biliyorum" işareti: o kelime bir daha toplu listelerde ve zorluk hesabında bilinmeyen sayılmaz. | S |
-| **Defterde sıralama ve filtre** | Kitaba göre, kutuya göre, ekleme tarihine göre; "sadece bu kitabın kelimeleri" ile tekrar. | S |
+| ✅ 2.2.0 — **Kitabın zorluğu** | Kitap eklenince "kelimelerin %94'ü ilk 3000 kelimede → B1 için uygun" gibi bir özet; kitaplıkta kapak altında seviye rozeti. | M |
+| ✅ 2.2.0 — **Bölüm öncesi kelime listesi** | Bölüme başlamadan önce, kullanıcının seviyesine göre bilinmesi muhtemel olmayan 10–15 kelimeyi gösterip tek dokunuşla deftere ekleme. | M |
+| ✅ 2.2.0 — **Bilinen kelimeler** | "Bunu biliyorum" işareti: o kelime bir daha toplu listelerde ve zorluk hesabında bilinmeyen sayılmaz. | S |
+| ✅ 2.2.0 — **Defterde sıralama ve filtre** | Kitaba göre, kutuya göre, ekleme tarihine göre; "sadece bu kitabın kelimeleri" ile tekrar. | S |
 
 ### İstatistik ve motivasyon
 
 | Ne | Açıklama | Emek |
 |---|---|---|
 | ✅ 1.8.0 — **Günlük seri ve hedef** | "Bugün 20 dk okudun, 12 tekrar yaptın · 7 günlük seri". Kitaplık başındaki `vocab-strip`'e eklenebilir. | S |
-| **İlerleme grafiği** | Haftalık okuma süresi, eklenen / öğrenilen kelime sayısı. Veriler zaten var (`last`, `reviews`, `box`), okuma süresinin kaydı eklenmeli. | M |
+| ✅ 2.2.0 — **İlerleme grafiği** | Haftalık okuma süresi, eklenen / öğrenilen kelime sayısı. Veriler zaten var (`last`, `reviews`, `box`), okuma süresinin kaydı eklenmeli. | M |
 
 ### Claude ile
 
