@@ -162,6 +162,23 @@ def test_books_are_served_over_local_http(app):
         urllib.request.urlopen(wrong)
 
 
+@pytest.mark.parametrize("book_id", ["84/../../etc", "https://example.com/x.epub", "", "12345678", "1; rm"])
+def test_catalog_download_takes_only_a_book_number(app, book_id):
+    res = app.Api(None).catalog_download(book_id)
+    assert res["ok"] is False and "izin" in res["message"]
+
+
+@pytest.mark.parametrize("url", [
+    "http://www.gutenberg.org/ebooks/84.epub3.images",   # not https
+    "https://example.com/book.epub",                     # another host
+    "https://gutenberg.org.example.com/x.epub",          # look-alike host
+    "file:///C:/Windows/win.ini",
+])
+def test_catalog_fetch_only_from_gutenberg(app, url):
+    with pytest.raises(ValueError):
+        app.Api(None)._catalog_fetch(url, 1000)
+
+
 def test_restore_rejects_other_zips(app, tmp_path):
     api = app.Api(None)
     bad = tmp_path / "other.zip"

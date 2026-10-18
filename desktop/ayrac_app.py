@@ -40,6 +40,9 @@ KV_DB = DATA_DIR / "data.sqlite"
 KEYRING_SERVICE = "Ayrac"
 KEYRING_USER = "anthropic_api_key"
 MODELS = {"opus": "claude-opus-5-5", "haiku": "claude-haiku-5-5"}
+# Free books: Project Gutenberg's catalogue feed; the app fetches only from these hosts.
+CATALOG_FEED = "https://www.gutenberg.org/ebooks/search.opds/"
+CATALOG_HOSTS = {"www.gutenberg.org", "gutenberg.org"}
 
 
 def resource(rel: str) -> Path:
@@ -675,6 +678,49 @@ class Api:
         start_outside_container(f'"{dest}" /SILENT /SUPPRESSMSGBOXES /NORESTART')
         threading.Timer(1.5, lambda: webview.windows[0].destroy()).start()
         return {"ok": True, "version": info["latest"]}
+
+    # ---------- free books (Project Gutenberg's own catalogue feed, OPDS) ----------
+    def _catalog_fetch(self, url, limit):
+        """GET an https URL on the catalog hosts only (the page cannot use this to reach anything else)."""
+        def allowed(u):
+            p = urllib.parse.urlparse(u)
+            return p.scheme == "https" and p.hostname in CATALOG_HOSTS
+        if not allowed(url):
+            raise ValueError("izin verilmeyen adres")
+        req = urllib.request.Request(url, headers={"User-Agent": f"Ayrac/{app_version()} (EPUB reader)"})
+        with urllib.request.urlopen(req, timeout=40) as r:
+            if not allowed(r.geturl()):
+                raise ValueError("izin verilmeyen yönlendirme")
+            data = r.read(limit + 1)
+        if len(data) > limit:
+            raise ValueError("dosya çok büyük")
+        return data
+
+    def catalog_search(self, query="", start=1):
+        """One page (25 books) of Project Gutenberg's search feed, most downloaded first. The page parses the
+        OPDS (Atom) text; only English books (l.en): Gutenberg's books are free of US copyright."""
+        q = ("l.en " + str(query or "")[:120]).strip()
+        params = {"query": q, "sort_order": "downloads"}
+        if int(start or 1) > 1:
+            params["start_index"] = int(start)
+        try:
+            return {"ok": True, "xml": self._catalog_fetch(CATALOG_FEED + "?" + urllib.parse.urlencode(params), 3_000_000).decode("utf-8")}
+        except (OSError, ValueError) as e:
+            log("warn", f"catalog_search {q!r}: {e!r}")
+            return {"ok": False, "message": str(e)}
+
+    def catalog_download(self, book_id):
+        """The EPUB of Gutenberg book <book_id> (a number), as base64 for the page to open like any other book."""
+        if not re.fullmatch(r"\d{1,7}", str(book_id or "")):
+            return {"ok": False, "message": "izin verilmeyen kitap numarası"}
+        url = f"https://www.gutenberg.org/ebooks/{book_id}.epub3.images"
+        try:
+            data = self._catalog_fetch(url, 60_000_000)
+        except (OSError, ValueError) as e:
+            log("warn", f"catalog_download {url}: {e!r}")
+            return {"ok": False, "message": str(e)}
+        log("info", f"catalog_download: {url} ({len(data)} bytes)")
+        return {"ok": True, "b64": base64.b64encode(data).decode("ascii")}
 
     def initial_file(self):
         path, self._initial_path = self._initial_path, None

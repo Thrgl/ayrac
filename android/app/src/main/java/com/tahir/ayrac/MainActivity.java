@@ -10,7 +10,9 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
+import android.provider.Settings;
 import android.util.Base64;
 import android.view.View;
 import android.view.Window;
@@ -27,6 +29,7 @@ import android.webkit.WebViewClient;
 import androidx.webkit.WebViewAssetLoader;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -40,6 +43,8 @@ import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Ayraç for Android: ayrac.html in a WebView, with the same bridge the desktop app offers
@@ -48,7 +53,7 @@ import java.util.concurrent.Executors;
 public class MainActivity extends Activity {
     private static final String HOST = "appassets.androidplatform.net";
     private static final String START = "https://" + HOST + "/assets/web/index.html";
-    private static final int REQ_FILE_INPUT = 1, REQ_CREATE = 2, REQ_OPEN = 3;
+    private static final int REQ_FILE_INPUT = 1, REQ_CREATE = 2, REQ_OPEN = 3, REQ_TREE = 4;
 
     private final ExecutorService pool = Executors.newFixedThreadPool(3);
     private final Claude claude = new Claude();
@@ -139,7 +144,7 @@ public class MainActivity extends Activity {
         if (req == REQ_FILE_INPUT) {
             if (fileCallback != null) fileCallback.onReceiveValue(u != null ? new Uri[]{u} : null);
             fileCallback = null;
-        } else if ((req == REQ_CREATE || req == REQ_OPEN) && docResult != null) {
+        } else if ((req == REQ_CREATE || req == REQ_OPEN || req == REQ_TREE) && docResult != null) {
             docResult.complete(u);
         }
     }
@@ -214,6 +219,105 @@ public class MainActivity extends Activity {
             if (!dark) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
             d.setSystemUiVisibility(flags);
         }
+    }
+
+    private static boolean catalogHost(java.net.URL u) {
+        return "https".equals(u.getProtocol()) && ("www.gutenberg.org".equals(u.getHost()) || "gutenberg.org".equals(u.getHost()));
+    }
+
+    /** GET from Project Gutenberg only (free books); same rule as ayrac_app.Api._catalog_fetch. */
+    private byte[] catalogFetch(String url, int limit) throws Exception {
+        java.net.URL u = new java.net.URL(url);
+        if (!catalogHost(u)) throw new IllegalArgumentException("izin verilmeyen adres");
+        java.net.HttpURLConnection c = (java.net.HttpURLConnection) u.openConnection();
+        c.setConnectTimeout(20_000);
+        c.setReadTimeout(40_000);
+        c.setRequestProperty("User-Agent", "Ayrac/" + version() + " (EPUB reader)");
+        try {
+            int code = c.getResponseCode();
+            if (!catalogHost(c.getURL())) throw new IllegalArgumentException("izin verilmeyen yönlendirme");
+            if (code != 200) throw new java.io.IOException("HTTP " + code);
+            try (InputStream in = c.getInputStream(); java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+                byte[] buf = new byte[1 << 16];
+                for (int n; (n = in.read(buf)) > 0; ) {
+                    out.write(buf, 0, n);
+                    if (out.size() > limit) throw new java.io.IOException("dosya çok büyük");
+                }
+                return out.toByteArray();
+            }
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    /** Ask the user for a folder (the update folder); blocks the calling worker thread. */
+    private Uri pickFolder() throws Exception {
+        CompletableFuture<Uri> f = new CompletableFuture<>();
+        docResult = f;
+        runOnUiThread(() -> startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQ_TREE));
+        return f.get();
+    }
+
+    private static final Pattern APK_NAME = Pattern.compile("^Ayrac-(\\d+)\\.(\\d+)\\.(\\d+)\\.apk$", Pattern.CASE_INSENSITIVE);
+
+    private static int compareVersions(int[] a, int[] b) {
+        for (int i = 0; i < 3; i++) if (a[i] != b[i]) return Integer.compare(a[i], b[i]);
+        return 0;
+    }
+
+    private static int[] parseVersion(String v) {
+        int[] out = new int[3];
+        String[] p = String.valueOf(v).split("\\.");
+        for (int i = 0; i < 3 && i < p.length; i++) {
+            try {
+                out[i] = Integer.parseInt(p[i].replaceAll("\\D.*", ""));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return out;
+    }
+
+    /** The newest Ayrac-x.y.z.apk in the update folder; set by checkUpdate for install_update. */
+    private volatile Uri updateApk;
+
+    /** Same answer shape as the desktop app's check_update, from the update folder instead of a web address. */
+    private JSONObject checkUpdate() throws JSONException {
+        JSONObject r = new JSONObject().put("current", version());
+        Object f = store.kvGet("updateFolder");
+        updateApk = null;
+        if (!(f instanceof String)) return r.put("configured", false);
+        Uri tree = Uri.parse((String) f);
+        String treeId = DocumentsContract.getTreeDocumentId(tree), folder = "güncelleme klasörü", bestName = null;
+        int[] best = null;
+        Uri bestUri = null;
+        String[] cols = {DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME};
+        try {
+            try (Cursor c = getContentResolver().query(DocumentsContract.buildDocumentUriUsingTree(tree, treeId), cols, null, null, null)) {
+                if (c != null && c.moveToFirst()) folder = c.getString(1);
+            }
+            try (Cursor c = getContentResolver().query(DocumentsContract.buildChildDocumentsUriUsingTree(tree, treeId), cols, null, null, null)) {
+                while (c != null && c.moveToNext()) {
+                    Matcher m = APK_NAME.matcher(String.valueOf(c.getString(1)));
+                    if (!m.matches()) continue;
+                    int[] v = {Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3))};
+                    if (best == null || compareVersions(v, best) > 0) {
+                        best = v;
+                        bestName = c.getString(1);
+                        bestUri = DocumentsContract.buildDocumentUriUsingTree(tree, c.getString(0));
+                    }
+                }
+            }
+        } catch (RuntimeException e) {  // permission gone (folder deleted or access revoked)
+            store.log("warn", "check_update: " + e);
+            return r.put("configured", true).put("ok", false).put("source", folder)
+                    .put("message", "Güncelleme klasörü okunamadı; geliştirici panelinden yeniden seç.");
+        }
+        boolean newer = best != null && compareVersions(best, parseVersion(version())) > 0;
+        if (newer) updateApk = bestUri;
+        String latest = best == null ? "" : best[0] + "." + best[1] + "." + best[2];
+        store.log("info", "check_update: current " + version() + ", latest " + (latest.isEmpty() ? "-" : latest) + " in " + folder);
+        return r.put("configured", true).put("ok", true).put("source", folder).put("latest", latest.isEmpty() ? version() : latest)
+                .put("newer", newer).put("notes", newer ? bestName + " · güncelleme klasöründe" : "");
     }
 
     private String displayName(Uri u) {
@@ -388,11 +492,70 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> setBarColors(c, dark));
                 return true;
             }
-            case "check_update":
-            case "set_update_source":
-                return new JSONObject().put("configured", false).put("current", version());
-            case "install_update":
-                return new JSONObject().put("ok", false).put("message", "Telefonda güncelleme, yeni APK'yı kurarak yapılır.");
+            case "catalog_search": {
+                String q = ("l.en " + (str(a, 0) == null ? "" : str(a, 0))).trim();
+                if (q.length() > 125) q = q.substring(0, 125);
+                int start = a.optInt(1, 1);
+                String url = "https://www.gutenberg.org/ebooks/search.opds/?query=" + Uri.encode(q) + "&sort_order=downloads"
+                        + (start > 1 ? "&start_index=" + start : "");
+                try {
+                    return new JSONObject().put("ok", true).put("xml", new String(catalogFetch(url, 3_000_000), StandardCharsets.UTF_8));
+                } catch (Exception e) {
+                    store.log("warn", "catalog_search: " + e);
+                    return new JSONObject().put("ok", false).put("message", String.valueOf(e.getMessage()));
+                }
+            }
+            case "catalog_download": {
+                String id = String.valueOf(str(a, 0));
+                if (!id.matches("\\d{1,7}")) return new JSONObject().put("ok", false).put("message", "izin verilmeyen kitap numarası");
+                try {
+                    byte[] data = catalogFetch("https://www.gutenberg.org/ebooks/" + id + ".epub3.images", 60_000_000);
+                    store.log("info", "catalog_download: " + id + " (" + data.length + " bytes)");
+                    return new JSONObject().put("ok", true).put("b64", Base64.encodeToString(data, Base64.NO_WRAP));
+                } catch (Exception e) {
+                    store.log("warn", "catalog_download " + id + ": " + e);
+                    return new JSONObject().put("ok", false).put("message", String.valueOf(e.getMessage()));
+                }
+            }
+            case "set_reminder": {
+                boolean on = a.optBoolean(0);
+                if (on && Build.VERSION.SDK_INT >= 33
+                        && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED)
+                    runOnUiThread(() -> requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 5));
+                ReminderReceiver.configure(this, on, str(a, 1));
+                return new JSONObject().put("ok", true).put("on", on);
+            }
+            case "reminder_test": {
+                String text = ReminderReceiver.message(this);
+                ReminderReceiver.show(this, text != null ? text : "Bugünlük her şey tamam: tekrar bekleyen kelime yok, hedefini de doldurdun.");
+                return true;
+            }
+            case "check_update": return checkUpdate();
+            case "set_update_source": {
+                // The update folder on the phone (developer mode): new Ayrac-x.y.z.apk files are picked up from it.
+                Uri tree = pickFolder();
+                if (tree != null) {
+                    getContentResolver().takePersistableUriPermission(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    store.kvSet("updateFolder", tree.toString());
+                }
+                return checkUpdate();
+            }
+            case "install_update": {
+                JSONObject info = checkUpdate();
+                Uri apk = updateApk;
+                if (!info.optBoolean("newer") || apk == null)
+                    return new JSONObject().put("ok", false).put("message", "Güncelleme klasöründe daha yeni bir Ayraç APK'sı yok.");
+                if (!getPackageManager().canRequestPackageInstalls()) {
+                    // Android asks once: "allow Ayraç to install apps"; after that the update opens directly.
+                    runOnUiThread(() -> startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName()))));
+                    return new JSONObject().put("ok", false).put("message", "Ayraç'a “uygulama yükleme” izni ver, sonra yeniden Güncelle'ye bas.");
+                }
+                store.log("info", "install_update: " + apk);
+                Intent i = new Intent(Intent.ACTION_VIEW).setDataAndType(apk, "application/vnd.android.package-archive")
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                runOnUiThread(() -> startActivity(i));
+                return new JSONObject().put("ok", true).put("version", info.optString("latest"));
+            }
             default:
                 throw new IllegalArgumentException("unknown method " + method);
         }

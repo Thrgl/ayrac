@@ -519,6 +519,22 @@ button.nb-sent:hover { color: var(--ink); background: color-mix(in srgb, var(--r
 .lib-gear svg { width: 17px; height: 17px; }
 .lib-settings { gap: 14px; }
 .lib-settings h2 { margin: 0; }
+.catalog { width: min(720px, 100%); gap: 12px; }
+.cat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cat-head h2 { margin: 0; }
+.cat-head .icon-btn { color: var(--muted); }
+.cat-search { display: flex; gap: 8px; }
+.cat-search .field { flex: 1; min-width: 0; }
+.cat-topics { display: flex; gap: 6px; flex-wrap: wrap; }
+.cat-topics button { border: 1px solid var(--line); background: none; color: var(--fg); border-radius: 999px; padding: 5px 12px; font-size: .84rem; }
+.cat-topics button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.cat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.cat-list li { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.cat-cover { width: 46px; aspect-ratio: 2 / 3; border-radius: 2px 5px 5px 2px; background: color-mix(in srgb, var(--accent) 25%, var(--surface)); object-fit: cover; display: block; }
+.cat-title { font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.cat-author { color: var(--muted); font-size: .85rem; }
+.cat-list .btn[disabled] { opacity: .6; }
+.cat-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px; }
 .ls-group { margin: 6px 0 0; font-size: .7rem; text-transform: uppercase; letter-spacing: .14em; color: var(--accent); font-weight: 700; border-top: 1px solid var(--line); padding-top: 14px; }
 .lib-settings .stepper { --rline: var(--line); --ink: var(--fg); }
 .wpm-now { font-size: .88rem; color: var(--muted); line-height: 1.45; }
@@ -606,6 +622,10 @@ button.nb-sent:hover { color: var(--ink); background: color-mix(in srgb, var(--r
           <span class="ai-chip" id="aiChip">Claude</span>
           <button class="btn-ghost" id="aiOpen" type="button">Claude ayarları</button>
         </div>
+        <button class="btn-ghost lib-gear" id="catalogBtn" type="button" aria-haspopup="dialog" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 012-2h12v15H6a2 2 0 00-2 2zm0 0A2 2 0 006 22h12v-4"/><path d="M12 7v6m-3-3h6"/></svg>
+          <span>Ücretsiz kitaplar</span>
+        </button>
         <button class="btn-ghost lib-gear" id="libSettingsBtn" type="button" aria-haspopup="dialog">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
           <span>Ayarlar</span>
@@ -1081,6 +1101,23 @@ button.nb-sent:hover { color: var(--ink); background: color-mix(in srgb, var(--r
       </div>
     </div>
 
+    <div id="remindGroup" hidden>
+      <h3 class="ls-group">Günlük hatırlatma</h3>
+      <div class="setting"><span>Her gün bildirim gönder</span>
+        <div class="seg" data-pref="remind">
+          <button type="button" data-v="off">Kapalı</button>
+          <button type="button" data-v="on">Açık</button>
+        </div>
+      </div>
+      <div class="setting" id="remindTimeRow"><span>Saat</span>
+        <div class="voice-row">
+          <input class="field" id="remindAt" type="time" value="20:00" aria-label="Hatırlatma saati">
+          <button class="btn" id="remindTest" type="button">Deneme bildirimi</button>
+        </div>
+        <div class="wpm-now">Örnek: “12 kelime tekrar bekliyor · bugün 0 / 15 dk okudun · 7 günlük serin bozulmasın”. O gün hedefini doldurduysan ve tekrar bekleyen kelime yoksa bildirim gelmez.</div>
+      </div>
+    </div>
+
     <h3 class="ls-group">Okuma hızı</h3>
     <div class="setting"><span>Okuma hızım</span>
       <div class="wpm-now" id="wpmNow"></div>
@@ -1097,6 +1134,35 @@ button.nb-sent:hover { color: var(--ink); background: color-mix(in srgb, var(--r
     </div>
     <p class="note">Yazı tipi, yazı boyutu, okuma teması, sesli okuma ve sayfa çevirme: kitap açıkken “Aa” düğmesinde.</p>
     <div class="modal-actions"><button class="btn solid" id="libSettingsClose" type="button">Tamam</button></div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="catalog" hidden>
+  <div class="modal catalog" role="dialog" aria-modal="true" aria-labelledby="catalogTitle">
+    <div class="cat-head">
+      <h2 id="catalogTitle">Ücretsiz kitaplar</h2>
+      <button class="icon-btn" id="catalogClose" type="button" aria-label="Kapat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p class="note">Project Gutenberg’deki İngilizce kitaplar: telif süresi dolmuş eserler, ücretsiz ve yasal (ABD telif yasasına göre; başka bir ülkede yaşıyorsan oradaki süre farklı olabilir). En çok okunanlar önce.</p>
+    <form class="cat-search" id="catalogForm" role="search">
+      <input class="field" id="catalogQuery" type="search" placeholder="Kitap ya da yazar ara (İngilizce)" autocomplete="off" spellcheck="false">
+      <button class="btn solid" type="submit">Ara</button>
+    </form>
+    <div class="cat-topics" id="catalogTopics">
+      <button type="button" data-q="" aria-pressed="true">Popüler</button>
+      <button type="button" data-q="s.children">Çocuk</button>
+      <button type="button" data-q="s.adventure">Macera</button>
+      <button type="button" data-q="s.detective">Polisiye</button>
+      <button type="button" data-q="s.science fiction">Bilim kurgu</button>
+      <button type="button" data-q="s.short stories">Kısa öykü</button>
+      <button type="button" data-q="s.fairy tales">Masal</button>
+      <button type="button" data-q="s.horror">Korku</button>
+      <button type="button" data-q="s.love">Aşk</button>
+    </div>
+    <ul class="cat-list" id="catalogList"></ul>
+    <div class="cat-foot"><span class="note" id="catalogStatus" aria-live="polite"></span><button class="btn" id="catalogMore" type="button" hidden>Daha fazla</button></div>
   </div>
 </div>
 
@@ -1155,6 +1221,7 @@ button.nb-sent:hover { color: var(--ink); background: color-mix(in srgb, var(--r
       <button class="btn" id="devLog" type="button">Günlüğü aç</button>
       <button class="btn" id="devData" type="button">Veri klasörünü aç</button>
       <button class="btn" id="devReload" type="button">Kitaplığı yenile</button>
+      <button class="btn" id="devUpdateSrc" type="button" hidden>Güncelleme klasörünü seç</button>
       <button class="btn" id="devUpdate" type="button">Güncellemeleri denetle</button>
       <button class="btn" id="devToggle" type="button">Geliştirici modunu kapat</button>
       <button class="btn" id="devClose" type="button">Kapat</button>
@@ -1624,7 +1691,7 @@ const FONTS = {
   book: '',
 };
 const prefs = Object.assign({ theme: 'auto', font: 'literata', fs: 19, lh: '1.65', width: '38em', level: 'B1', accent: 'en-US', rate: '0.9', mark: 'on', goal: '15', newPerDay: '20', cardMode: 'mix',
-  layout: 'scroll', edgeTap: 'off', swipe: 'on', preWords: 'on', appTheme: 'auto', startup: 'library', wpmMode: 'auto', wpm: 200, ink: 'auto', voice: '', shadow: 'off' }, store.get('prefs', {}));
+  layout: 'scroll', edgeTap: 'off', swipe: 'on', preWords: 'on', appTheme: 'auto', startup: 'library', wpmMode: 'auto', wpm: 200, remind: 'off', remindAt: '20:00', ink: 'auto', voice: '', shadow: 'off' }, store.get('prefs', {}));
 // The whole app's light/dark theme (library, panels; the reader too when its theme is "Uygulamayla aynı").
 function applyAppTheme() {
   if (prefs.appTheme === 'light' || prefs.appTheme === 'dark') document.documentElement.dataset.theme = prefs.appTheme;
@@ -4031,7 +4098,7 @@ function hideAnimated(n) {
   n._closeT = setTimeout(done, 320);  // in case no animation runs
 }
 function closePanels(keepScrim) {
-  for (const id of ['#tocDrawer', '#prefs', '#notebook', '#searchDrawer', '#libSettings']) hideAnimated($(id));
+  for (const id of ['#tocDrawer', '#prefs', '#notebook', '#searchDrawer', '#libSettings', '#catalog']) hideAnimated($(id));
   $('#keysModal').hidden = true; $('#statsModal').hidden = true; $('#wpmTest').hidden = true;
   if (!keepScrim) hideAnimated($('#scrim'));
   $('#tocBtn').setAttribute('aria-expanded', 'false'); $('#prefsBtn').setAttribute('aria-expanded', 'false'); $('#nbBtn').setAttribute('aria-expanded', 'false');
@@ -4069,7 +4136,99 @@ document.querySelectorAll('#prefs .seg').forEach((seg) => seg.addEventListener('
 $('#inkPick').addEventListener('input', () => changePref(() => { prefs.ink = $('#inkPick').value; }));
 // Settings on the start screen (library)
 function openLibSettings() { applyPrefs(); renderLibExtras(); showNode($('#libSettings')); $('#libSettingsClose').focus(); }
+/* Free books: Project Gutenberg's catalogue feed (OPDS) through the host (desktop and Android only allow
+   gutenberg.org); a book is downloaded as EPUB and opened like any other. */
+const ATOM = 'http://www.w3.org/2005/Atom';
+const catalogState = { q: '', start: 1, busy: false, owned: new Set() };
+function parseOpds(xml) {
+  const d = new DOMParser().parseFromString(xml, 'application/xml');
+  const txt = (e, tag) => ((e.getElementsByTagNameNS(ATOM, tag)[0] || {}).textContent || '').trim();
+  const books = [];
+  for (const e of d.getElementsByTagNameNS(ATOM, 'entry')) {
+    const m = txt(e, 'id').match(/\/ebooks\/(\d+)\.opds$/);
+    if (m) books.push({ id: m[1], title: txt(e, 'title'), author: txt(e, 'content') });
+  }
+  const next = [...d.documentElement.children].some((l) => l.localName === 'link' && l.getAttribute('rel') === 'next');
+  return { books, next };
+}
+async function catalogLoad(reset) {
+  if (catalogState.busy) return;
+  catalogState.busy = true;
+  const list = $('#catalogList'), status = $('#catalogStatus');
+  if (reset) { catalogState.start = 1; list.replaceChildren(); }
+  status.textContent = 'Yükleniyor…'; $('#catalogMore').hidden = true;
+  try {
+    const r = await host.api.catalog_search(catalogState.q, catalogState.start);
+    if (!r || !r.ok) throw new Error((r && r.message) || '');
+    const { books: found, next } = parseOpds(r.xml);
+    for (const b of found) list.appendChild(catalogItem(b));
+    status.textContent = list.children.length ? '' : 'Bu aramaya uyan kitap bulunamadı.';
+    catalogState.start += 25;
+    $('#catalogMore').hidden = !next;
+  } catch (e) {
+    status.textContent = 'Katalog açılamadı. İnternet bağlantını kontrol edip tekrar dene.' + (e.message ? ' (' + e.message + ')' : '');
+  } finally { catalogState.busy = false; }
+}
+function catalogItem(b) {
+  const li = el('li');
+  const img = el('img', 'cat-cover'); img.alt = ''; img.loading = 'lazy';
+  img.src = 'https://www.gutenberg.org/cache/epub/' + b.id + '/pg' + b.id + '.cover.medium.jpg';
+  img.addEventListener('error', () => { img.removeAttribute('src'); }, { once: true });
+  const text = el('div');
+  text.append(el('div', 'cat-title', b.title), el('div', 'cat-author', b.author || 'Yazar bilinmiyor'));
+  const have = catalogState.owned.has(normWord(b.title));
+  const add = el('button', have ? 'btn' : 'btn solid', have ? 'Kitaplıkta' : 'Ekle ve aç'); add.type = 'button';
+  add.addEventListener('click', async () => {
+    if (have) {  // open the copy that is already in the library
+      const rec = ((await books.all()) || []).find((r) => normWord(r.title) === normWord(b.title));
+      if (rec) { hideAnimated($('#catalog')); openFile(rec.file, rec); }
+      return;
+    }
+    add.disabled = true; add.textContent = 'İndiriliyor…';
+    const r = await host.api.catalog_download(b.id);
+    if (!r || !r.ok) { add.disabled = false; add.textContent = 'Ekle ve aç'; toast('İndirilemedi' + (r && r.message ? ': ' + r.message : '.')); return; }
+    hideAnimated($('#catalog'));
+    await openFile(new File([b64ToBlob(r.b64, 'application/epub+zip')], 'gutenberg-' + b.id + '.epub', { type: 'application/epub+zip' }));
+  });
+  li.append(img, text, add);
+  return li;
+}
+async function openCatalog() {
+  catalogState.owned = new Set(((await books.all()) || []).map((r) => normWord(r.title || '')));
+  showNode($('#catalog'));
+  catalogLoad(true);  // fresh "Kitaplıkta" marks
+  setTimeout(() => $('#catalogQuery').focus(), 50);
+}
+$('#catalogBtn').hidden = !host;
+$('#catalogBtn').addEventListener('click', openCatalog);
+$('#catalogClose').addEventListener('click', () => hideAnimated($('#catalog')));
+$('#catalog').addEventListener('click', (e) => { if (e.target === $('#catalog')) hideAnimated($('#catalog')); });
+$('#catalogForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  catalogState.q = $('#catalogQuery').value.trim();
+  $('#catalogTopics').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(!catalogState.q && b.dataset.q === '')));
+  catalogLoad(true);
+});
+$('#catalogTopics').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  $('#catalogTopics').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  $('#catalogQuery').value = '';
+  catalogState.q = b.dataset.q;
+  catalogLoad(true);
+});
+$('#catalogMore').addEventListener('click', () => catalogLoad(false));
+
+// Daily reminder: Android notifications (ReminderReceiver); the app tells the phone whenever the setting changes.
+function syncReminder() {
+  if (PLATFORM !== 'android' || !host) return;
+  try { Promise.resolve(host.api.set_reminder(prefs.remind === 'on', prefs.remindAt || '20:00')).catch(() => {}); } catch (e) {}
+}
+$('#remindAt').addEventListener('change', () => { prefs.remindAt = $('#remindAt').value || '20:00'; store.set('prefs', prefs); syncReminder(); });
+$('#remindTest').addEventListener('click', () => { if (host) host.api.reminder_test(); });
 function renderLibExtras() {
+  $('#remindGroup').hidden = PLATFORM !== 'android';
+  $('#remindAt').value = prefs.remindAt || '20:00';
+  $('#remindTimeRow').hidden = prefs.remind !== 'on';
   $('#goalOut').textContent = (Number(prefs.goal) || 15) + ' dk';
   const m = measuredWpm();
   $('#wpmNow').replaceChildren(...(m
@@ -4134,6 +4293,7 @@ document.querySelectorAll('#libSettings .seg').forEach((seg) => seg.addEventList
   prefs[seg.dataset.pref] = b.dataset.v;
   if (seg.dataset.pref === 'wpmMode' && b.dataset.v === 'manual' && !prefs.wpmSet) prefs.wpm = String(measuredWpm() || 200);
   applyPrefs(); renderLibExtras();
+  if (seg.dataset.pref === 'remind') syncReminder();
   if (seg.dataset.pref === 'goal' || seg.dataset.pref === 'newPerDay') vocab.listeners.forEach((fn) => fn());  // badge + strip
   if (seg.dataset.pref === 'level') renderShelf();  // level badges ("seviyene uygun")
 }));
@@ -4571,12 +4731,15 @@ async function checkUpdate(manual) {
   return u;
 }
 $('#updateBtn').addEventListener('click', async () => {
-  const ok = await askConfirm('Güncelle', 'Yeni sürüm indirilip kurulacak. Ayraç kapanıp yeniden açılacak; kitapların, defterin ve ayarların korunur.', 'Güncelle');
+  const ok = await askConfirm('Güncelle', PLATFORM === 'android'
+    ? 'Güncelleme klasöründeki yeni sürüm kurulacak. Android’in kurulum ekranında “Güncelle”ye bas; uygulama kaldırılmaz, kitapların, defterin ve ayarların korunur.'
+    : 'Yeni sürüm indirilip kurulacak. Ayraç kapanıp yeniden açılacak; kitapların, defterin ve ayarların korunur.', 'Güncelle');
   if (!ok) return;
-  $('#updateBtn').disabled = true; $('#updateBtn').textContent = 'İndiriliyor…';
+  $('#updateBtn').disabled = true; $('#updateBtn').textContent = PLATFORM === 'android' ? 'Açılıyor…' : 'İndiriliyor…';
   flushStats();
   const r = await host.api.install_update();
-  if (!r || !r.ok) { $('#updateBtn').disabled = false; $('#updateBtn').textContent = 'Güncelle'; toast((r && r.message) || 'Güncellenemedi.'); }
+  if (!r || !r.ok || PLATFORM === 'android') { $('#updateBtn').disabled = false; $('#updateBtn').textContent = 'Güncelle'; }
+  if (!r || !r.ok) toast((r && r.message) || 'Güncellenemedi.');
 });
 // An .epub opened while the app is running (double-click, Birlikte aç) arrives here.
 window.ayracOpenExternal = async () => {
@@ -4603,7 +4766,10 @@ async function openDevPanel() {
   const dl = $('#devInfo'); dl.replaceChildren();
   for (const [k, v] of rows) dl.append(el('dt', '', k), el('dd', '', v || '—'));
   $('#devNote').textContent = host ? (info.devMode ? 'Geliştirici modu açık: uygulamayı kapatıp açınca sağ tık → “İncele” ile web inceleyicisi açılır. Günlük her açılışı ve hataları kaydeder.' : 'Geliştirici modu kapalı.') : 'Web sürümünde günlük ve inceleyici yok.';
-  $('#devLog').hidden = $('#devData').hidden = $('#devUpdate').hidden = !host || PLATFORM === 'android';
+  $('#devLog').hidden = $('#devData').hidden = !host || PLATFORM === 'android';
+  $('#devUpdate').hidden = !host;
+  $('#devUpdateSrc').hidden = PLATFORM !== 'android';  // phone: new APKs are picked up from a folder on the phone
+  if (PLATFORM === 'android') $('#devNote').textContent += ' Güncelleme: yeni Ayrac-x.y.z.apk dosyasını telefondaki güncelleme klasörüne koy, sonra “Güncellemeleri denetle”.';
   $('#devToggle').textContent = devOn() ? 'Geliştirici modunu kapat' : 'Geliştirici modunu aç';
   $('#devPanel').hidden = false;
 }
@@ -4630,6 +4796,11 @@ $('#devData').addEventListener('click', () => host && host.api.open_path('data')
 $('#devReload').addEventListener('click', async () => { await renderShelf(); toast('Kitaplık yeniden okundu'); });
 $('#devToggle').addEventListener('click', async () => { await setDev(!devOn()); openDevPanel(); });
 $('#devUpdate').addEventListener('click', () => checkUpdate(true));
+$('#devUpdateSrc').addEventListener('click', async () => {
+  const u = await host.api.set_update_source('');  // Android: opens the folder picker
+  checkUpdate(true);
+  if (u && u.configured) openDevPanel();
+});
 showDevBadge();
 
 // Android back button: close the top-most thing; false means "nothing to close, leave the app".
@@ -4639,7 +4810,7 @@ window.ayracBack = () => {
   if (wc) { closeWordCard(); return true; }
   if (pick.on) { setPickMode(false); return true; }
   if (!$('#wpmTest').hidden) { $('#wpmTest').hidden = true; return true; }
-  if (['#tocDrawer', '#notebook', '#searchDrawer', '#prefs', '#libSettings', '#statsModal', '#keysModal', '#noteModal'].some((s) => isOpen($(s)))) { $('#noteModal').hidden = true; closePanels(); return true; }
+  if (['#tocDrawer', '#notebook', '#searchDrawer', '#prefs', '#libSettings', '#catalog', '#statsModal', '#keysModal', '#noteModal'].some((s) => isOpen($(s)))) { $('#noteModal').hidden = true; closePanels(); return true; }
   if (!$('#reader').hidden) { showLibrary(); return true; }
   return false;
 };
@@ -4649,6 +4820,7 @@ updateListenBtn();
 vocab.changed();
 await renderShelf();
 syncSystemBars();
+syncReminder();  // re-arms the phone's daily reminder (e.g. after reinstalling)
 let openedAtStart = false;
 if (host) {
   // a book passed on the command line ("Open with" / double-clicked .epub)
