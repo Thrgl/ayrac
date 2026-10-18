@@ -22,6 +22,8 @@ android {
         targetSdk 34
         versionCode ayracCode
         versionName ayracVersion
+        // The neural voice engine (sherpa-onnx) ships native code; 64-bit ARM phones only, to keep the APK small.
+        ndk { abiFilters 'arm64-v8a' }
     }
 
     signingConfigs {
@@ -48,6 +50,7 @@ android {
     }
 
     packaging {
+        jniLibs { useLegacyPackaging true }  // compressed in the APK (smaller download)
         resources {
             excludes += ['META-INF/*.kotlin_module', 'META-INF/versions/**', 'META-INF/LICENSE*', 'META-INF/NOTICE*', 'META-INF/DEPENDENCIES']
         }
@@ -57,6 +60,9 @@ android {
 dependencies {
     implementation 'androidx.webkit:webkit:1.12.1'
     implementation 'com.anthropic:anthropic-java:2.34.0'
+    // Neural reading voices: sherpa-onnx (android\app\libs, fetched by build.ps1) and bzip2/tar for the voice files
+    implementation files('libs/sherpa-onnx-static-link-onnxruntime-1.13.8.aar')
+    implementation 'org.apache.commons:commons-compress:1.21'
 
     // Unit tests (android\test.ps1): the shared dictionary cases, with JDBC SQLite and the real org.json
     // instead of the android.jar stubs.

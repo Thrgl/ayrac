@@ -426,6 +426,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .sh-bar i { display: block; height: 100%; width: 0; background: var(--rlink); }
 .shadowbar.say .pick-count { color: var(--rlink); }
 .voice-row { display: flex; gap: 8px; }
+.neural-box { display: grid; gap: 8px; margin-top: 4px; }
+.neural-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.neural-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; border: 1px solid var(--rline); border-radius: 10px; padding: 8px 10px; }
+.neural-list li.on { border-color: var(--rlink); background: color-mix(in srgb, var(--rlink) 8%, transparent); }
+.neural-list b { font-size: .88rem; }
+.neural-list small { grid-column: 1; color: var(--ink-soft); font-size: .75rem; }
+.neural-acts { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; }
+.neural-acts button { border: 1px solid var(--rline); background: none; color: var(--ink); border-radius: 999px; padding: 4px 10px; font-size: .78rem; }
+.neural-acts button.primary { background: var(--rlink); border-color: var(--rlink); color: var(--paper); }
+.neural-bar { grid-column: 1 / -1; display: block; height: 3px; border-radius: 3px; background: var(--rline); overflow: hidden; }
+.neural-bar i { display: block; height: 100%; background: var(--rlink); width: 0; transition: width .3s; }
 .voice-row select { flex: 1; min-width: 0; padding: 7px 8px; font-size: .85rem; }
 .toc-filter { margin: 4px 16px 0; }
 #tocList li { display: flex; align-items: center; gap: 2px; }
@@ -787,6 +798,16 @@ body.modal-open #library { overflow: hidden; }  /* not #scroller: that would mov
           <button type="button" data-v="0.9">Rahat</button>
           <button type="button" data-v="1">Normal</button>
           <button type="button" data-v="1.15">Hızlı</button>
+        </div>
+      </div>
+      <div class="setting" id="engineRow" hidden><span>Okuyan ses</span>
+        <div class="seg" data-pref="voiceEngine">
+          <button type="button" data-v="system">Sistem sesi</button>
+          <button type="button" data-v="neural">Yapay zekâ sesi</button>
+        </div>
+        <div class="neural-box" id="neuralBox" hidden>
+          <ul class="neural-list" id="neuralList"></ul>
+          <div class="pop-note">Sesler bu cihazda çalışır (Piper, açık kaynak); bir kez indirilir, sonra internet gerekmez. Telefonda ekran kapalıyken de okur.</div>
         </div>
       </div>
       <div class="setting" id="voiceRow" hidden><span>Ses</span>
@@ -1699,7 +1720,7 @@ const FONTS = {
   book: '',
 };
 const prefs = Object.assign({ theme: 'auto', font: 'literata', fs: 19, lh: '1.65', width: '38em', level: 'B1', accent: 'en-US', rate: '0.9', mark: 'on', goal: '15', newPerDay: '20', cardMode: 'mix',
-  layout: 'scroll', edgeTap: 'off', swipe: 'on', preWords: 'on', appTheme: 'auto', startup: 'library', wpmMode: 'auto', wpm: 200, remind: 'off', remindAt: '20:00', ink: 'auto', voice: '', shadow: 'off' }, store.get('prefs', {}));
+  layout: 'scroll', edgeTap: 'off', swipe: 'on', preWords: 'on', voiceEngine: 'system', neuralVoice: '', appTheme: 'auto', startup: 'library', wpmMode: 'auto', wpm: 200, remind: 'off', remindAt: '20:00', ink: 'auto', voice: '', shadow: 'off' }, store.get('prefs', {}));
 // The whole app's light/dark theme (library, panels; the reader too when its theme is "Uygulamayla aynı").
 function applyAppTheme() {
   if (prefs.appTheme === 'light' || prefs.appTheme === 'dark') document.documentElement.dataset.theme = prefs.appTheme;
@@ -2370,7 +2391,7 @@ function voiceLabel(v) {
 }
 function fillVoices() {
   const vs = englishVoices();
-  $('#voiceRow').hidden = !vs.length;
+  $('#voiceRow').hidden = !vs.length || prefs.voiceEngine === 'neural';
   if (!vs.length) return;
   const sel = $('#voiceSel');
   sel.replaceChildren(new Option('Otomatik (en iyi ses: ' + voiceLabel(vs[0]).split(' · ')[0] + ')', ''), ...vs.map((v) => new Option(voiceLabel(v), v.voiceURI)));
@@ -2388,13 +2409,101 @@ function utter(text, rate) {
 function say(text, rate) {
   if (!canSpeak || !text) return;
   stopReading();
-  speechSynthesis.cancel();
+  ttsCancel();
+  if (neuralInPage()) {  // desktop: the neural voice for single words and sentences too
+    neuralFetch(text, rate).then((r) => { if (r && r.ok) { neural.audio.src = r.url; neural.audio.play().catch(() => {}); } });
+    return;
+  }
   const u = utter(text, rate);
   u.onerror = (e) => { if (e.error !== 'interrupted' && e.error !== 'canceled') toast('Ses çalınamadı. Tarayıcının sesli okuma desteği kapalı olabilir.'); };
   speechSynthesis.speak(u);
 }
+
+/* Neural reading voice (Piper, on this device): Ayarlar → İngilizce çalışma → Okuyan ses.
+   Desktop: Python makes a WAV per sentence and the page plays it; the next two sentences are made ahead so
+   there is no wait between them. Android: the phone's own player does it (Speech.java), so it keeps reading
+   with the screen off; the page only says which voice and hands over the next sentence early. */
+const neural = { audio: new Audio(), cache: new Map(), status: [] };
+const neuralWanted = () => !!host && prefs.voiceEngine === 'neural' && neural.status.some((v) => v.id === prefs.neuralVoice && v.installed);
+const neuralInPage = () => PLATFORM === 'windows' && neuralWanted();
+function neuralFetch(text, rate) {
+  const key = prefs.neuralVoice + '|' + (rate || prefs.rate) + '|' + text;
+  if (!neural.cache.has(key)) {
+    const p = Promise.resolve(host.api.voice_speak(prefs.neuralVoice, text.trim(), Number(rate || prefs.rate) || 1)).catch(() => null);
+    neural.cache.set(key, p);
+    while (neural.cache.size > 12) neural.cache.delete(neural.cache.keys().next().value);
+  }
+  return neural.cache.get(key);
+}
+function ttsCancel() {
+  try { speechSynthesis.cancel(); } catch (e) {}
+  neural.audio.onended = null; neural.audio.pause();
+}
+function prefetchNext() {  // the next sentences, so they are ready when this one ends
+  for (const n of [1, 2]) {
+    const c = tts.chunks[tts.i + n];
+    if (!c) break;
+    if (neuralInPage()) neuralFetch(c.text);
+    else if (PLATFORM === 'android' && neuralWanted() && window.AyracNative && AyracNative.prefetch) AyracNative.prefetch(c.text.trim(), Number(prefs.rate) || 1);
+  }
+}
 if (canSpeak) { try { speechSynthesis.getVoices(); speechSynthesis.addEventListener('voiceschanged', fillVoices); } catch (e) {} }
 fillVoices();
+
+// The "Okuyan ses" setting: system voice or one of the neural voices (download, use, delete).
+const ACCENT_TR = { 'en-US': 'Amerikan', 'en-GB': 'İngiliz' };
+let neuralPoll = 0;
+async function refreshNeural() {
+  if (!host) return;
+  let r = null;
+  try { r = await host.api.voice_status(); } catch (e) {}
+  if (!r || !r.ok) { $('#engineRow').hidden = true; return; }
+  neural.status = r.voices || [];
+  $('#engineRow').hidden = false;
+  if (PLATFORM === 'android') syncNativeVoice();
+  renderNeural();
+  if (neuralInPage() && !neural.warm) { neural.warm = true; neuralFetch('Hello.'); }  // loads the voice now, not at the first sentence
+  const busy = neural.status.some((v) => v.progress && (v.progress.state === 'downloading' || v.progress.state === 'extracting'));
+  clearTimeout(neuralPoll);
+  if (busy) neuralPoll = setTimeout(refreshNeural, 700);
+}
+function syncNativeVoice() {  // Android: tell the phone's player which voice reads (or none: the system voice)
+  try { Promise.resolve(host.api.voice_select(neuralWanted() ? prefs.neuralVoice : '')).catch(() => {}); } catch (e) {}
+}
+function renderNeural() {
+  const on = prefs.voiceEngine === 'neural';
+  $('#neuralBox').hidden = !on;
+  $('#voiceRow').hidden = on || !englishVoices().length;
+  const ul = $('#neuralList');
+  ul.replaceChildren();
+  for (const v of neural.status) {
+    const li = el('li', v.installed && prefs.neuralVoice === v.id ? 'on' : '');
+    li.append(el('b', '', v.label + ' · ' + (ACCENT_TR[v.accent] || v.accent)));
+    const p = v.progress || {};
+    const busy = p.state === 'downloading' || p.state === 'extracting';
+    li.appendChild(el('small', '', busy ? (p.state === 'extracting' ? 'Kuruluyor…' : 'İndiriliyor… %' + Math.round(100 * (p.done || 0) / (p.total || 1)))
+      : p.state === 'error' ? 'İndirilemedi: ' + (p.message || '') : v.installed ? (prefs.neuralVoice === v.id ? 'Okuyan ses' : 'Kurulu') : v.mb + ' MB, bir kez indirilir'));
+    const acts = el('div', 'neural-acts');
+    const btn = (text, cls, fn) => { const b = el('button', cls, text); b.type = 'button'; b.addEventListener('click', fn); acts.appendChild(b); return b; };
+    if (busy) { /* progress only */ }
+    else if (!v.installed) btn('İndir', 'primary', async () => { await host.api.voice_install(v.id); prefs.neuralVoice = prefs.neuralVoice || v.id; refreshNeural(); });
+    else {
+      if (prefs.neuralVoice !== v.id) btn('Kullan', 'primary', () => { prefs.neuralVoice = v.id; store.set('prefs', prefs); neural.cache.clear(); refreshNeural(); });
+      btn('Dene', '', () => { const keep = prefs.neuralVoice; prefs.neuralVoice = v.id; say('This is how I will read your book. I hope you enjoy the story.'); prefs.neuralVoice = keep; });
+      btn('Sil', '', async () => { if (prefs.neuralVoice === v.id) prefs.neuralVoice = ''; await host.api.voice_remove(v.id); store.set('prefs', prefs); refreshNeural(); });
+    }
+    li.appendChild(acts);
+    if (busy) { const bar = el('i', 'neural-bar'); const f = el('i'); f.style.width = Math.round(100 * (p.done || 0) / (p.total || 1)) + '%'; bar.appendChild(f); li.appendChild(bar); }
+    ul.appendChild(li);
+  }
+  // A neural voice chosen but none installed yet: the first installed one reads.
+  if (on && !neural.status.some((v) => v.id === prefs.neuralVoice && v.installed)) {
+    const first = neural.status.find((v) => v.installed);
+    if (first) { prefs.neuralVoice = first.id; store.set('prefs', prefs); renderNeural(); }
+  }
+}
+$('#engineRow .seg').addEventListener('click', () => setTimeout(() => { neural.cache.clear(); refreshNeural(); }, 0));
+refreshNeural();
 
 const tts = { on: false, chunks: [], i: 0, token: 0, marks: [] };
 const BLOCKS = 'p,li,h1,h2,h3,h4,h5,h6,dd,dt,blockquote,figcaption,td,th';
@@ -2453,7 +2562,7 @@ function updateListenBtn() {
 }
 function startReading() {
   if (!canSpeak || !book) return;
-  speechSynthesis.cancel();
+  ttsCancel();
   tts.chunks = buildChunks();
   if (!tts.chunks.length) { if (cur < book.spine.length - 1) { goTo(cur + 1, { keepReading: true }).then(startReading); } return; }
   const top = scroller.getBoundingClientRect().top + 8;
@@ -2473,8 +2582,26 @@ function speakChunk() {
   }
   c.block.classList.add('tts-block'); tts.marks.push(c.block);
   ensureVisible(c.block);
-  const u = utter(c.text);
   const my = ++tts.token;
+  const chunkDone = () => {
+    if (my !== tts.token || !tts.on) return;
+    if (prefs.shadow === 'auto' || prefs.shadow === 'manual') shadowPause(c, my);
+    else { tts.i++; speakChunk(); }
+  };
+  showShadow(false);
+  prefetchNext();
+  if (neuralInPage()) {
+    neuralFetch(c.text).then((r) => {
+      if (my !== tts.token || !tts.on) return;
+      if (!r || !r.ok) { stopReading(); toast('Yapay zekâ sesi okuyamadı' + (r && r.message ? ': ' + r.message : '.')); return; }
+      const a = neural.audio;
+      a.onended = chunkDone;
+      a.src = r.url;
+      a.play().catch(() => { if (my === tts.token) { stopReading(); toast('Ses çalınamadı.'); } });
+    });
+    return;
+  }
+  const u = utter(c.text);
   u.onboundary = (e) => {
     if (my !== tts.token || (e.name && e.name !== 'word')) return;
     const at = c.start + e.charIndex;
@@ -2482,16 +2609,11 @@ function speakChunk() {
     tts.marks.filter((m) => m.localName === 'x-w').forEach((m) => m.classList.remove('tts-word'));
     if (w) { w.node.classList.add('tts-word'); tts.marks.push(w.node); }
   };
-  u.onend = () => {
-    if (my !== tts.token || !tts.on) return;
-    if (prefs.shadow === 'auto' || prefs.shadow === 'manual') shadowPause(c, my);
-    else { tts.i++; speakChunk(); }
-  };
+  u.onend = chunkDone;
   u.onerror = (e) => {
     if (my !== tts.token || e.error === 'interrupted' || e.error === 'canceled') return;
     stopReading(); toast('Sesli okuma başlatılamadı. Tarayıcında İngilizce ses yüklü olmayabilir.');
   };
-  showShadow(false);
   speechSynthesis.speak(u);
 }
 /* Shadowing: after each sentence the reading stops so you can say it aloud yourself, then goes on
@@ -2513,8 +2635,8 @@ function shadowPause(c, my) {
   showShadow(true, ms);
   if (ms) tts.timer = setTimeout(() => { if (my === tts.token && tts.on) shadowNext(); }, ms);
 }
-function shadowNext() { if (!tts.on) return; clearTimeout(tts.timer); tts.token++; speechSynthesis.cancel(); tts.i++; speakChunk(); }
-function shadowAgain() { if (!tts.on) return; clearTimeout(tts.timer); tts.token++; speechSynthesis.cancel(); speakChunk(); }
+function shadowNext() { if (!tts.on) return; clearTimeout(tts.timer); tts.token++; ttsCancel(); tts.i++; speakChunk(); }
+function shadowAgain() { if (!tts.on) return; clearTimeout(tts.timer); tts.token++; ttsCancel(); speakChunk(); }
 $('#shadowNext').addEventListener('click', shadowNext);
 $('#shadowAgain').addEventListener('click', shadowAgain);
 $('#shadowStop').addEventListener('click', () => stopReading());
@@ -2523,7 +2645,7 @@ function stopReading() {
   tts.on = false; tts.token++;
   clearTimeout(tts.timer);
   $('#shadowBar').hidden = true;
-  if (was && canSpeak) { try { speechSynthesis.cancel(); } catch (e) {} }
+  if (was && canSpeak) ttsCancel();
   clearTtsMarks();
   updateListenBtn();
 }

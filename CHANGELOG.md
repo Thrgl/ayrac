@@ -2,6 +2,11 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.7.0 — 2026-10-18
+- Yapay zekâ sesiyle okuma (sesli kitap gibi): "Aa" → İngilizce çalışma → "Okuyan ses" → "Yapay zekâ sesi". Dört ses: Lessac (Amerikan kadın), Ryan (Amerikan erkek), Alba (İngiliz kadın), Northern (İngiliz erkek). İstediğin sesi bir kez indirirsin (~64 MB); ses bu cihazda üretilir, internet gerekmez, ücretsizdir. Bilgisayarda ve telefonda; telefonda ekran kapalıyken de okur.
+- Okurken sonraki iki cümle önceden hazırlanır, cümleler arasında bekleme olmaz. Okuma hızı, gölgeleme, kelimeyi dinle de bu sesle çalışır. (Bu seste kelime kelime vurgu yok; okunan paragraf vurgulanır.)
+- Sesler Piper (açık kaynak) modelleri, sherpa-onnx ile çalışır. Kokoro da denendi: daha doğal ama telefonda cümlelere yetişemiyor.
+
 ## 2.6.3 — 2026-10-18
 - Başlangıç ekranında Claude'la ilgili bir şey kalmadı ("Claude bağlı değil" yazısı ve "Claude ayarları" düğmesi kaldırıldı; Claude bağlantısı isteyen için geliştirici panelinde). En altta "Claude ile yapılmıştır · Tahir Gül".
 

@@ -19,4 +19,6 @@ android/keystore.properties
 android/releases/
 android/app/src/main/assets/
 android/app/src/main/res/mipmap-*/
+android/app/libs/
 *.apk
+*.aar
