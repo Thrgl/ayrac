@@ -2,6 +2,9 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.6.1 — 2026-10-18
+- Bölüm başındaki zor kelimeler artık açılır-kapanır: tek satırlık başlık ("Bu bölümde zor olabilecek 12 kelime · marble, tremble, manuscript ve 9 kelime daha"); dokununca liste aşağı doğru açılır, tekrar dokununca kapanır, ikisi de animasyonlu. Açık mı kapalı mı bıraktığın hatırlanır. "Kapat" ile de solarak kaybolur.
+
 ## 2.6.0 — 2026-10-18
 - Ücretsiz kitaplar: kitaplıkta "Ücretsiz kitaplar" düğmesi kendi panelini açar. Project Gutenberg'deki telif süresi dolmuş İngilizce kitaplar, en çok okunanlar önce; arama ve konular (Çocuk, Macera, Polisiye, Bilim kurgu, Kısa öykü, Masal, Korku, Aşk); "Ekle ve aç" ile kitap indirilip açılır. Bilgisayar ve telefon.
 - Günlük hatırlatma (telefon): başlangıç ekranının Ayarlar'ında saat seç; her gün "12 kelime tekrar bekliyor · bugün 0 / 15 dk okudun · 7 günlük serin bozulmasın" bildirimi gelir. O gün hedefini doldurduysan ve tekrar bekleyen kelime yoksa gelmez. "Deneme bildirimi" ile hemen görebilirsin.

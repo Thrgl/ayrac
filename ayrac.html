@@ -251,11 +251,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .drawer-level b { color: var(--ink); }
 .chapter-start {
   break-inside: avoid; font-family: var(--font-ui); font-size: .88rem; color: var(--ink);
-  border: 1px solid var(--rline); border-radius: 12px; padding: 14px 16px; margin: 0 0 28px; display: grid; gap: 10px;
+  border: 1px solid var(--rline); border-radius: 12px; padding: 0 16px; margin: 0 0 28px; display: grid;
 }
-.cs-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.cs-head b { font-size: .95rem; }
-.cs-head span { color: var(--ink-soft); font-size: .8rem; }
+/* Collapsed to one line; the heading opens it downwards. Opening and closing both animate (grid rows 0fr ↔ 1fr). */
+.chapter-start:not([hidden]) { animation: ay-down .22s ease-out; }
+.chapter-start.cs-leaving { animation: ay-out-pop .2s ease-in forwards; }
+.cs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; padding: 12px 0; cursor: pointer; }
+.cs-title { display: grid; gap: 3px; min-width: 0; }
+.cs-title b { font-size: .95rem; }
+.cs-title span { color: var(--ink-soft); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-chev { flex: none; width: 8px; height: 8px; border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft); transform: translateY(-2px) rotate(45deg); transition: transform .25s ease; }
+.chapter-start.open .cs-chev { transform: translateY(2px) rotate(-135deg); }
+.cs-body { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .28s ease, opacity .22s ease; }
+.chapter-start.open .cs-body { grid-template-rows: 1fr; opacity: 1; }
+.cs-inner { overflow: hidden; min-height: 0; display: grid; gap: 10px; }
+.cs-inner > .cs-foot { padding-bottom: 14px; }
 .cs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .cs-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--rline); }
 .cs-word { font-weight: 600; }
@@ -3438,9 +3448,27 @@ async function renderChapterStart(i, opt) {
     .map((r) => ({ ...r, sentence: firstEl.has(r.c.word) ? sentenceOf(firstEl.get(r.c.word)) : '' }));
   if (rows.length < 3 || scrollPos() > 40) return;  // the reader already moved on (or jumped to a search hit)
 
-  const close =() => { csDismissed.add(dismissKey); box.hidden = true; box.replaceChildren(); onScroll(); };
-  const head = el('div', 'cs-head');
-  head.append(el('b', '', 'Bu bölümde zor olabilecek ' + rows.length + ' kelime'), el('span', '', 'Seviyen ' + prefs.level + ' · sözlükteki sıklığa göre'));
+  // "Kapat": the box fades out, then leaves the page for this chapter.
+  const close = () => {
+    csDismissed.add(dismissKey);
+    box.classList.add('cs-leaving');
+    setTimeout(() => { box.hidden = true; box.classList.remove('cs-leaving'); box.replaceChildren(); onScroll(); }, 200);
+  };
+  // A one-line heading that opens the list downwards (and closes it again); the choice is remembered.
+  const head = el('button', 'cs-head'); head.type = 'button';
+  const sub = el('span');
+  const names = rows.map((r) => r.info.lemma || r.c.lemma);
+  const setOpen = (open) => {
+    box.classList.toggle('open', open);
+    head.setAttribute('aria-expanded', String(open));
+    inner.inert = !open;  // closed: its buttons are not reachable with Tab
+    sub.textContent = open ? 'Seviyen ' + prefs.level + ' · sözlükteki sıklığa göre'
+      : names.slice(0, 3).join(', ') + (names.length > 3 ? ' ve ' + (names.length - 3) + ' kelime daha' : '');
+  };
+  const title = el('span', 'cs-title');
+  title.append(el('b', '', 'Bu bölümde zor olabilecek ' + rows.length + ' kelime'), sub);
+  head.append(title, el('i', 'cs-chev'));
+  head.addEventListener('click', () => { const open = !box.classList.contains('open'); setOpen(open); store.set('csOpen', open); });
   const ul = el('ul', 'cs-list');
   const pending = new Set(rows);
   for (const r of rows) {
@@ -3468,7 +3496,12 @@ async function renderChapterStart(i, opt) {
   });
   hide.addEventListener('click', close);
   foot.append(all, hide);
-  box.append(head, ul, foot);
+  const drawer = el('div', 'cs-body'), inner = el('div', 'cs-inner');
+  inner.append(ul, foot);
+  drawer.appendChild(inner);
+  drawer.addEventListener('transitionend', (e) => { if (e.target === drawer && e.propertyName === 'grid-template-rows') onScroll(); });  // page count
+  box.append(head, drawer);
+  setOpen(!!store.get('csOpen', false));
   box.hidden = false;
   onScroll();
 }
