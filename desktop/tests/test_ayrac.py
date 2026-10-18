@@ -51,45 +51,44 @@ def phrases(res):
 
 
 # ---------- dictionary ----------
+# The cases live in dict_cases.json, shared with the Android dictionary's tests (android/app/src/test).
 
-@pytest.mark.parametrize("word, prev, nxt", [
-    ("take", ["will"], ["off", "the"]),
-    ("took", ["plane"], ["off", "at"]),      # past form
-    ("off", ["plane", "took"], ["at"]),      # tapping the second word
-    ("take", ["please"], ["it", "off"]),     # object pronoun in between
-    ("off", ["take", "it"], []),
-])
-def test_take_off_is_found(d, word, prev, nxt):
-    assert "take off" in phrases(d.lookup(word, prev, nxt))
+CASES = json.loads((HERE / "dict_cases.json").read_text(encoding="utf-8"))
 
 
-def test_look_after(d):
-    res = d.lookup("looked", ["Lewis", "had"], ["after", "her"])
-    assert res["head"] == "look"
-    assert "look after" in phrases(res)
+def case_id(c):
+    return " ".join([*c.get("prev", []), f"[{c['word']}]", *c.get("next", [])])
 
 
-def test_inflected_form_leads_with_base_word(d):
-    res = d.lookup("travelled")
-    assert res["found"] and res["head"] == "travel"
-    assert "seyahat etmek" in translations(res)
-
-
-def test_irregular_plural(d):
-    res = d.lookup("children")
+@pytest.mark.parametrize("c", CASES["lookup"], ids=case_id)
+def test_lookup_case(d, c):
+    res = d.lookup(c["word"], c.get("prev"), c.get("next"))
+    if c.get("found") is False:
+        assert res["found"] is False
+        return
     assert res["found"]
-    assert res["head"] == "child" or (res.get("also") or {}).get("head") == "child"
+    if "head" in c:
+        assert res["head"] == c["head"]
+    if "head_or_also" in c:
+        assert c["head_or_also"] in (res["head"], (res.get("also") or {}).get("head"))
+    if "phrase" in c:
+        assert c["phrase"] in phrases(res)
+    if "tr" in c:
+        assert c["tr"] in translations(res)
+    if "cefr" in c:
+        assert res["cefr"] == c["cefr"], res.get("zipf")
 
 
-def test_derived_words_are_not_cut_down(d):
-    # "-er" makes a new word: "charmer" must not turn into "charm".
-    res = d.lookup("charmer", ["snake"], [])
-    assert res["head"] == "charmer"
-    assert "snake charmer" in phrases(res)
-
-
-def test_unknown_word(d):
-    assert d.lookup("zzzzqx")["found"] is False
+@pytest.mark.parametrize("c", CASES["profile"], ids=lambda c: c["word"])
+def test_profile_case(d, c):
+    p = d.profile([c["word"]])
+    key = c["word"].lower()
+    if c.get("missing"):
+        assert key not in p
+        return
+    assert p[key][0] == c["lemma"]
+    if "zipf_min" in c:
+        assert p[key][1] > c["zipf_min"]
 
 
 def test_usage_label_is_not_a_definition(d):
@@ -97,19 +96,6 @@ def test_usage_label_is_not_a_definition(d):
         for e in res.get("entries", []):
             for k in e.get("k", []):
                 assert not (k.startswith("(") and k.rstrip(".").endswith(")"))
-
-
-@pytest.mark.parametrize("word, expected", [("the", "A1"), ("travel", "A2"), ("impressed", "B1"), ("charmer", "C2")])
-def test_cefr_estimate(d, word, expected):
-    res = d.lookup(word)
-    assert res["cefr"] == expected, (word, res.get("zipf"))
-
-
-def test_profile_gives_lemma_and_frequency(d):
-    p = d.profile(["took", "travelled", "children", "The", "zzzzqx", "took"])
-    assert p["took"][0] == "take" and p["travelled"][0] == "travel" and p["children"][0] == "child"
-    assert p["the"][1] > 7 > p["travelled"][1]
-    assert "zzzzqx" not in p
 
 
 def test_cefr_scale():

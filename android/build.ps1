@@ -50,4 +50,10 @@ $releases = Join-Path $here 'releases'
 New-Item -ItemType Directory -Force $releases | Out-Null
 $apk = Join-Path $releases "Ayrac-$version.apk"
 Copy-Item (Join-Path $here 'app\build\outputs\apk\release\app-release.apk') $apk -Force
+
+# Keep only the newest 4 APKs; an older one can be rebuilt from its git tag.
+$old = @(Get-ChildItem $releases -File | Where-Object { $_.Name -match '^Ayrac-(\d+\.\d+\.\d+)\.apk$' } |
+  Sort-Object { [version]($_.Name -replace '^Ayrac-|\.apk$', '') } -Descending | Select-Object -Skip 4)
+$old | Remove-Item -Force
+if ($old.Count) { "releases: removed " + (($old | ForEach-Object { $_.Name }) -join ', ') }
 Get-Item $apk | Select-Object FullName, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}

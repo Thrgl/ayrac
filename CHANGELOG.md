@@ -2,6 +2,16 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.5.0 — 2026-10-18
+- .txt dosyaları da açılır (kitap seçerken ya da sürükleyip bırakınca). Açarken kitaba çevrilir: "Chapter 1" gibi satırlardan bölümler çıkar; Project Gutenberg metinlerinde başlık ve yazar okunur, lisans metni kitaba girmez.
+- Defterde "Düzenle": anlamı düzeltebilir, kendi notunu ekleyebilirsin. Not tekrar kartının arkasında ve CSV'de görünür.
+- Defterde kelimenin cümlesine dokununca kitap o yerde açılır ve cümle vurgulanır.
+- "İnatçı" kelimeler: 6 ya da daha çok kez unutulan kelimeler işaretlenir; defterde "İnatçı" filtresi; tekrarda cümlesiyle (boşluk doldurma) sorulur; "Baştan öğren" ile yeniden başlar.
+- Telefonda da kitabın seviyesi (≈B1 rozeti) ve bölüm başında zor kelimeler.
+- Kapanış animasyonları: ayarlar, defter, içindekiler, arama ve başlangıç ekranının ayarları kayarak/solarak kapanır.
+- Telefonda geri tuşu açık pencereyi (ayarlar, ilerleme, hız testi) kapatır; önce uygulamadan çıkıyordu.
+- Geliştirme: telefon ve bilgisayar sözlüğü aynı test dosyasıyla sınanıyor (`desktop\tests\dict_cases.json`, `android\test.ps1`); derleme klasörlerinde yalnız son 4 sürüm tutuluyor.
+
 ## 2.4.2 — 2026-10-18 (yalnız Android)
 - Kaydırarak sayfa çevirme artık yalnız "Sayfa sayfa" düzeninde. "Kaydırma" düzeninde yana kaydırınca sayfa bir ekran aşağı atlıyordu; artık bir şey olmaz, yukarı-aşağı kaydırarak okursun.
 

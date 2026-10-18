@@ -75,5 +75,15 @@ if (Test-Path $iscc) {
   $json = @{ version = $version; setup_url = "Ayrac-Setup-$version.exe"; notes = $notes } | ConvertTo-Json -Compress
   [IO.File]::WriteAllText($manifest, $json, (New-Object Text.UTF8Encoding $false))
 } else { "Inno Setup not found ($iscc); skipping the installer" }
+
+# Keep only the newest 4 versions in releases\ (~75 MB each); an older one can be rebuilt from its git tag.
+$keep = 4
+$vers = Get-ChildItem $releases -File | ForEach-Object { if ($_.Name -match '^Ayrac-(?:Setup-)?(\d+\.\d+\.\d+)\.exe$') { $matches[1] } } |
+  Select-Object -Unique | Sort-Object { [version]$_ } -Descending
+$old = @($vers | Select-Object -Skip $keep)
+foreach ($v in $old) {
+  Get-ChildItem $releases -File | Where-Object { $_.Name -eq "Ayrac-$v.exe" -or $_.Name -eq "Ayrac-Setup-$v.exe" } | Remove-Item -Force
+}
+if ($old.Count) { "releases: removed old versions " + ($old -join ', ') }
 "Ayraç $version built"
 Get-ChildItem $dist, $releases -Recurse -File | Select-Object FullName, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
