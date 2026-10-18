@@ -2,6 +2,11 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.6.0 — 2026-10-18
+- Ücretsiz kitaplar: kitaplıkta "Ücretsiz kitaplar" düğmesi kendi panelini açar. Project Gutenberg'deki telif süresi dolmuş İngilizce kitaplar, en çok okunanlar önce; arama ve konular (Çocuk, Macera, Polisiye, Bilim kurgu, Kısa öykü, Masal, Korku, Aşk); "Ekle ve aç" ile kitap indirilip açılır. Bilgisayar ve telefon.
+- Günlük hatırlatma (telefon): başlangıç ekranının Ayarlar'ında saat seç; her gün "12 kelime tekrar bekliyor · bugün 0 / 15 dk okudun · 7 günlük serin bozulmasın" bildirimi gelir. O gün hedefini doldurduysan ve tekrar bekleyen kelime yoksa gelmez. "Deneme bildirimi" ile hemen görebilirsin.
+- Telefonda güncelleme (geliştirici modu): geliştirici panelinde "Güncelleme klasörünü seç" ile telefonda bir klasör seç (ör. İndirilenler). Yeni Ayrac-x.y.z.apk dosyasını oraya koyunca kitaplıkta "Güncelle" çıkar; basınca Android'in kurulum ekranı açılır. Uygulama kaldırılmaz, veriler korunur. (İlk seferde Android "uygulama yükleme" izni ister.)
+
 ## 2.5.0 — 2026-10-18
 - .txt dosyaları da açılır (kitap seçerken ya da sürükleyip bırakınca). Açarken kitaba çevrilir: "Chapter 1" gibi satırlardan bölümler çıkar; Project Gutenberg metinlerinde başlık ve yazar okunur, lisans metni kitaba girmez.
 - Defterde "Düzenle": anlamı düzeltebilir, kendi notunu ekleyebilirsin. Not tekrar kartının arkasında ve CSV'de görünür.

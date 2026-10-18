@@ -52,7 +52,7 @@ Ayrac/
 | `log`, `app_info`, `set_dev_mode`, `open_path` | Geliştirici modu ve günlük |
 | `save_text_file` | Sayfanın ürettiği metni (defter CSV'si) kaydetme penceresiyle diske yazar |
 | `open_external` | Ayraç açıkken açılan `.epub`'ı pencereye getirir (`window.ayracOpenExternal`) |
-| `check_update`, `set_update_source`, `install_update` | Güncelleme manifestini okur; yeni kurulumu indirip paketin dışında çalıştırır |
+| `check_update`, `set_update_source`, `install_update` | Masaüstü: güncelleme manifestini okur; yeni kurulumu indirip paketin dışında çalıştırır. Android: güncelleme klasöründeki en yeni `Ayrac-x.y.z.apk`; `set_update_source` klasör seçtirir, `install_update` Android kurulum ekranını açar |
 | `backup_export`, `backup_import` | Yedek: tek ZIP (`ayrac-backup.json`, `data.json`, `books/`). Geri yüklemeden önce mevcut hâl `%APPDATA%\Ayrac\backups`'a yedeklenir |
 
 Sayfadaki `store` (ayarlar) ve `books` (kitaplık) nesneleri bu ikisini soyutlar; özellik kodu hangi sürümde çalıştığını bilmez. Masaüstünde Claude çağrıları da web'deki `sample` arayüzüyle aynı biçimde sarılır (`desktopSample()`).
@@ -367,7 +367,7 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 | Ne | Açıklama | Emek |
 |---|---|---|
 | ✅ 2.5.0 — **Kitap seviyesi ve bölüm başı zor kelimeler** | `dict_profile` Android köprüsünde yok, bu yüzden "≈B1" rozeti ve bölüm öncesi kelime listesi telefonda çalışmıyor. | S |
-| **Güncelleme denetimi** | Android'de `check_update` / `install_update` boş; her yeni APK telefona elle taşınıyor. APK'nın bir web adresinde (örn. GitHub Releases) durması gerekir; aynı adres masaüstü güncelleyicisinin `latest.json`'ı için de kullanılabilir. | M |
+| ✅ 2.6.0 — **Güncelleme denetimi** (web adresi yerine telefondaki güncelleme klasörü: geliştirici panelinde seçilir, `Ayrac-x.y.z.apk` aranır, Android kurulum ekranı açılır) | Android'de `check_update` / `install_update` boş; her yeni APK telefona elle taşınıyor. APK'nın bir web adresinde (örn. GitHub Releases) durması gerekir; aynı adres masaüstü güncelleyicisinin `latest.json`'ı için de kullanılabilir. | M |
 
 ### Yeni özellikler
 
@@ -376,8 +376,8 @@ Arama mantığı `ayrac_app.Dictionary.lookup` içinde: çekimli kelimede (Türk
 | ✅ 2.5.0 — **Defterde anlamı düzenleme** (anlam + not; not tekrar kartında ve CSV'de) | Sözlükten gelen anlam bazen yanlış ya da çok uzun; defterde şu an yalnız "Sil" var (`renderNotebookList`). Anlamı ve notu elle düzeltebilmek. | S |
 | ✅ 2.5.0 — **Defterden kitaptaki yere git** (yeni kayıtlarda `bookId` ve bölüm; eskilerde kitap adı ve cümle aranır) | Kelimenin cümlesine dokununca kitap o yerde açılsın. | S |
 | ✅ 2.5.0 — **Bir türlü öğrenilemeyen kelimeler** ("inatçı": 6+ kez unutulan; işaret, filtre, cümleli soru, "Baştan öğren") | Tekrar sistemi kaç kez unutulduğunu sayıyor (`lapses`) ama yalnız "en zor önce" sıralamasında kullanıyor. 6–8 kez unutulan kelime işaretlenip ayrı çalışılabilir ya da kart türü değiştirilebilir. | S |
-| **Günlük hatırlatma** | Telefonda bildirim: "12 kelime tekrar bekliyor · 7 günlük serin bozulmasın". Bilgisayarda isteğe bağlı. | M |
-| **Ücretsiz kitap kataloğu** | Standard Ebooks / Project Gutenberg'den kitap arama ve tek dokunuşla ekleme; seviye hesabı zaten var, kitaplar seviyeye göre sıralanabilir. | M |
+| ✅ 2.6.0 — **Günlük hatırlatma** (telefon: `ReminderReceiver`, başlangıç ekranının Ayarlar'ında saat) | Telefonda bildirim: "12 kelime tekrar bekliyor · 7 günlük serin bozulmasın". Bilgisayarda isteğe bağlı. | M |
+| ✅ 2.6.0 — **Ücretsiz kitap kataloğu** (Project Gutenberg OPDS; köprü yalnız gutenberg.org'a bağlanır, yalnız arama kelimesi ve kitap numarası alır) | Standard Ebooks / Project Gutenberg'den kitap arama ve tek dokunuşla ekleme; seviye hesabı zaten var, kitaplar seviyeye göre sıralanabilir. | M |
 | ✅ 2.5.0 — **TXT** (açarken bellekte EPUB'a çevrilir; Gutenberg başlığı/lisansı ayıklanır) | Şu an yalnız EPUB açılıyor (`fileInput` `accept=".epub"`). Düz metin (.txt) kolayca eklenir. | S |
 
 ### Ufak notlar
