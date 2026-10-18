@@ -783,7 +783,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
           <button type="button" data-v="off">Kapalı</button>
         </div>
       </div>
-      <div class="setting" id="swipeRow" hidden><span>Parmakla sağa / sola kaydırınca sayfa çevir</span>
+      <div class="setting" id="swipeRow" hidden><span>Sayfa sayfa düzeninde kaydırınca sayfa çevir</span>
         <div class="seg" data-pref="swipe">
           <button type="button" data-v="on">Açık</button>
           <button type="button" data-v="off">Kapalı</button>
@@ -3983,7 +3983,7 @@ document.addEventListener('keydown', (e) => {
   else if (paged() && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); turnPage(e.key === 'ArrowDown' ? 1 : -1); }
 });
 
-/* Turning pages. Android: a horizontal finger swipe in both layouts (right-to-left = next); taps never turn
+/* Turning pages. Android: a horizontal finger swipe in page mode (right-to-left = next); taps never turn
    pages, a tap is always for the word under the finger. Desktop: the wheel and swipes in page mode, keys, and
    optional taps near the left/right edge. */
 const ANDROID = PLATFORM === 'android';
@@ -4000,7 +4000,8 @@ scroller.addEventListener('wheel', (e) => {
 }, { passive: false });
 if (ANDROID) {
   scroller.addEventListener('pointerdown', (e) => {
-    swipe = e.pointerType === 'mouse' || prefs.swipe === 'off' || !e.isPrimary ? null : { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now() };
+    // Only in page mode: in the scrolling layout a sideways swipe would jump a whole screen.
+    swipe = !paged() || e.pointerType === 'mouse' || prefs.swipe === 'off' || !e.isPrimary ? null : { id: e.pointerId, x: e.clientX, y: e.clientY, t: Date.now() };
   });
   scroller.addEventListener('pointercancel', () => { swipe = null; });  // the browser took over (vertical scrolling)
   scroller.addEventListener('pointerup', (e) => {
