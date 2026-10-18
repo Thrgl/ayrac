@@ -142,6 +142,33 @@ def test_backup_round_trip(app, tmp_path):
     assert Path(res["safety"]).exists()
 
 
+def test_settings_move_from_json_to_sqlite(app, tmp_path):
+    app.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    app.KV_FILE.write_text(json.dumps({"words": [{"id": "w-a", "head": "a"}], "prefs": {"theme": "sepia"}}), encoding="utf-8")
+    api = app.Api(None)
+    assert api.kv_all()["prefs"] == {"theme": "sepia"}
+    assert not app.KV_FILE.exists() and list(app.DATA_DIR.glob("data.json.*.bak"))
+    api.kv_set("pos:x", {"i": 2, "frac": 0.5})
+    api.kv_del("prefs")
+    again = app.Api(None)  # read back from SQLite
+    assert again.kv_all() == {"words": [{"id": "w-a", "head": "a"}], "pos:x": {"i": 2, "frac": 0.5}}
+
+
+def test_books_are_served_over_local_http(app):
+    import urllib.error
+    import urllib.request
+    api = app.Api(None)
+    epub = add_book(app, api)
+    with urllib.request.urlopen(api.book_url("id:test-book")) as r:
+        assert r.read() == epub and r.headers["Access-Control-Allow-Origin"] == "*"
+    cover = api.books_list()[0]["cover"]
+    with urllib.request.urlopen(cover) as r:
+        assert r.read() == b"cover" and r.headers["Content-Type"] == "image/jpeg"
+    wrong = api.book_url("id:test-book").replace(api._server.token, "x" * 24)
+    with pytest.raises(urllib.error.HTTPError):
+        urllib.request.urlopen(wrong)
+
+
 def test_restore_rejects_other_zips(app, tmp_path):
     api = app.Api(None)
     bad = tmp_path / "other.zip"
