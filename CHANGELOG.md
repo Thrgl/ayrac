@@ -2,6 +2,9 @@
 
 Sürüm numarası `desktop/VERSION` dosyasında. Her derleme `desktop/releases/Ayrac-<sürüm>.exe` olarak saklanır.
 
+## 2.6.3 — 2026-10-18
+- Başlangıç ekranında Claude'la ilgili bir şey kalmadı ("Claude bağlı değil" yazısı ve "Claude ayarları" düğmesi kaldırıldı; Claude bağlantısı isteyen için geliştirici panelinde). En altta "Claude ile yapılmıştır · Tahir Gül".
+
 ## 2.6.2 — 2026-10-18
 - Düzeltme: telefonda başlangıç ekranının Ayarlar penceresinde (ve öteki pencerelerde) yukarı-aşağı kaydırınca pencere yerine arkadaki kitaplık kayıyordu. Pencere açıkken arkası artık kilitli, kaydırma pencerenin içinde kalır; panellerin ve listelerin sonuna gelince de kaydırma arkaya geçmez.
 
