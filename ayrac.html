@@ -523,7 +523,7 @@ button.nb-sent:hover { color: var(--ink); background: color-mix(in srgb, var(--r
 .dev-info { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; font-size: .85rem; }
 .dev-info dt { color: var(--muted); }
 .dev-info dd { margin: 0; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; font-size: .8rem; }
-.ai-entry { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.made-by { margin: -18px 0 0; text-align: center; font-size: .78rem; color: var(--muted); letter-spacing: .02em; }
 .brand-tools { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .lib-gear { display: inline-flex; align-items: center; gap: 7px; }
 .lib-gear svg { width: 17px; height: 17px; }
@@ -553,9 +553,6 @@ button.nb-sent:hover { color: var(--ink); background: color-mix(in srgb, var(--r
 .wpm-result { font-size: .95rem; line-height: 1.5; }
 .wpm-result b { font-family: var(--font-display); font-size: 1.6rem; font-weight: 500; }
 .lib-settings .seg { --rline: var(--line); --rlink: var(--accent); --ink: var(--fg); --ink-soft: var(--muted); }
-.ai-chip { font-size: .78rem; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
-.ai-chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
-.ai-chip.on::before { background: var(--good); }
 .brand { flex-wrap: wrap; }
 .modal-wrap { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: grid; place-items: center; padding: 16px; overflow-y: auto; overscroll-behavior: contain; }
 /* While a window or panel is open, the page behind it does not scroll (body.modal-open, set in the script). */
@@ -631,10 +628,6 @@ body.modal-open #library { overflow: hidden; }  /* not #scroller: that would mov
         <p>İngilizce kitap oku. Bilmediğin kelimeye dokun, anlamını gör, defterine ekle, sonra tekrar et.</p>
       </div>
       <div class="brand-tools">
-        <div class="ai-entry desktop-only" hidden>
-          <span class="ai-chip" id="aiChip">Claude</span>
-          <button class="btn-ghost" id="aiOpen" type="button">Claude ayarları</button>
-        </div>
         <button class="btn-ghost lib-gear" id="catalogBtn" type="button" aria-haspopup="dialog" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 012-2h12v15H6a2 2 0 00-2 2zm0 0A2 2 0 006 22h12v-4"/><path d="M12 7v6m-3-3h6"/></svg>
           <span>Ücretsiz kitaplar</span>
@@ -655,7 +648,7 @@ body.modal-open #library { overflow: hidden; }  /* not #scroller: that would mov
       <h2 id="dropTitle">Bir kitap aç (EPUB ya da TXT)</h2>
       <p id="dropDesc">Dosyayı buraya sürükle ya da bilgisayarından seç. Kitap yalnızca bu tarayıcıda açılır, hiçbir yere yüklenmez.</p>
       <button class="btn-primary" id="pickBtn" type="button">Kitap seç (EPUB ya da TXT)</button>
-      <div class="facts"><span>Kelimeye dokun, anlamını gör</span><span>Kelime defteri ve aralıklı tekrar</span><span>Sesli okuma</span><span>Bölüm sonu anlama testi</span></div>
+      <div class="facts"><span>Kelimeye dokun, anlamını gör</span><span>Kelime defteri ve aralıklı tekrar</span><span>Sesli okuma</span></div>
     </section>
 
     <section class="vocab-strip" id="vocabStrip" aria-label="Kelime defteri" hidden>
@@ -694,6 +687,7 @@ body.modal-open #library { overflow: hidden; }  /* not #scroller: that would mov
       <button class="link-btn" id="backupImport" type="button">Yedekten yükle</button>
       <input type="file" id="backupFile" accept=".json,application/json" hidden>
     </footer>
+    <p class="made-by">Claude ile yapılmıştır · Tahir Gül</p>
   </div>
 </main>
 
@@ -1235,6 +1229,7 @@ body.modal-open #library { overflow: hidden; }  /* not #scroller: that would mov
       <button class="btn" id="devData" type="button">Veri klasörünü aç</button>
       <button class="btn" id="devReload" type="button">Kitaplığı yenile</button>
       <button class="btn" id="devUpdateSrc" type="button" hidden>Güncelleme klasörünü seç</button>
+      <button class="btn desktop-only" id="devAi" type="button" hidden>Claude ayarları</button>
       <button class="btn" id="devUpdate" type="button">Güncellemeleri denetle</button>
       <button class="btn" id="devToggle" type="button">Geliştirici modunu kapat</button>
       <button class="btn" id="devClose" type="button">Kapat</button>
@@ -1684,8 +1679,8 @@ function aiError(e) {
   const code = e && e.code;
   if (AI_GONE.includes(code)) { ai.off = true; refreshAiUi(); return 'Claude bu görünümde kullanılamıyor. Aşağıdaki sözlük bağlantılarını kullanabilirsin.'; }
   if (code === 'cancelled') return '';
-  if (code === 'no_key') { ai.off = true; refreshAiUi(); return 'Claude bağlı değil. Kitaplıktaki “Claude ayarları” düğmesinden API anahtarını ekleyebilirsin.'; }
-  if (code === 'bad_key') return 'API anahtarı geçersiz ya da yetkisiz. “Claude ayarları”ndan kontrol et.';
+  if (code === 'no_key') { ai.off = true; refreshAiUi(); return 'Claude bağlı değil. API anahtarı geliştirici panelindeki “Claude ayarları”ndan eklenir.'; }
+  if (code === 'bad_key') return 'API anahtarı geçersiz ya da yetkisiz. Geliştirici panelindeki “Claude ayarları”ndan kontrol et.';
   if (code === 'connection') return 'İnternet bağlantısı yok gibi görünüyor. Bağlantını kontrol edip tekrar dene.';
   if (code === 'bad_request') return 'Claude isteği kabul etmedi' + (e.message ? ': ' + e.message : '.');
   if (code === 'rate_limited') return 'Kısa sürede çok soru soruldu. Biraz bekleyip tekrar dene.';
@@ -4647,9 +4642,6 @@ async function refreshAiStatus() {
   const s = (await host.api.ai_status()) || {};
   aiModel = s.model || 'opus';
   $('#aiModel').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === aiModel)));
-  const chip = $('#aiChip');
-  chip.textContent = s.configured ? 'Claude bağlı' : 'Claude bağlı değil';
-  chip.classList.toggle('on', !!s.configured);
   $('#aiRemove').hidden = !s.keyring;
   $('#aiKey').placeholder = s.configured ? (s.source === 'env' ? 'ANTHROPIC_API_KEY ortam değişkeninden okunuyor' : 'Kayıtlı anahtar var · değiştirmek için yenisini yapıştır') : 'sk-ant-…';
   return s;
@@ -4667,7 +4659,7 @@ if (host) {
     ? 'Telefonundaki bir EPUB dosyasını seç. Açtığın kitaplar bu telefonda kitaplığına kopyalanır.'
     : 'Dosyayı buraya sürükle ya da bilgisayarından seç. Açtığın kitaplar bu bilgisayarda kitaplığına kopyalanır.';
   if (PLATFORM === 'android') $('#aiKeyNote').textContent = 'Anahtar bu telefonda, uygulamanın kendi alanında saklanır ve yalnızca Anthropic’e gönderilir. Anahtar olmadan da okuyabilir, kelimeleri dinleyebilir, defter tutup tekrar yapabilirsin.';
-  $('#aiOpen').addEventListener('click', openAiSetup);
+  $('#devAi').addEventListener('click', () => { $('#devPanel').hidden = true; openAiSetup(); });  // Claude: only from the developer panel
   $('#aiCloseBtn').addEventListener('click', () => { aiModal.hidden = true; });
   aiModal.addEventListener('click', (e) => { if (e.target === aiModal) aiModal.hidden = true; });
   $('#aiModel').addEventListener('click', async (e) => {
