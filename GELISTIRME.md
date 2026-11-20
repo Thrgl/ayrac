@@ -112,6 +112,20 @@ $git = "$env:LOCALAPPDATA\Programs\MinGit\cmd\git.exe"
 & $git switch main; & $git merge --no-ff v1.7.0; & $git tag v1.7.0
 ```
 
+## GitHub
+
+Depo herkese açık: https://github.com/Thrgl/ayrac (yalnız `main` ve `v*` etiketleri gönderilir; sürüm dalları yereldedir). Commit'ler GitHub'ın gizli adresiyle yazılır (`142834235+Thrgl@users.noreply.github.com`, depo `.git\config`'inde ayarlı); kişisel e-posta kullanma.
+
+GitHub CLI: `%LOCALAPPDATA%\Programs\gh\bin\gh.exe` (PATH'te değil; git'in kimlik bilgisi yardımcısı olarak ayarlı, bu yüzden çalıştırırken MinGit PATH'e eklenmeli). Yeni sürümü yayımlamak:
+
+```powershell
+$env:PATH = "$env:LOCALAPPDATA\Programs\MinGit\cmd;$env:PATH"
+$gh = "$env:LOCALAPPDATA\Programs\gh\bin\gh.exe"
+git push origin main --tags
+& $gh release create v2.8.0 --repo Thrgl/ayrac --title "Ayraç 2.8.0" --notes-file notlar.md `
+    desktop\releases\Ayrac-Setup-2.8.0.exe android\releases\Ayrac-2.8.0.apk
+```
+
 ## Yeni sürüm çıkarma
 
 1. Değişikliği yap (`ayrac.html` ve/veya `desktop\ayrac_app.py`), testleri çalıştır.
