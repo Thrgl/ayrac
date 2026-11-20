@@ -5,7 +5,7 @@ Ayraç, İngilizce öğrenmek için yapılmış bir EPUB okuyucu. Aynı okuyucu 
 | Sürüm | Nerede | Veriler nerede |
 |---|---|---|
 | **Masaüstü (Windows)** | `%LOCALAPPDATA%\Programs\Ayrac\Ayrac.exe` (masaüstü ve Başlat menüsü kısayolu) | `%APPDATA%\Ayrac` |
-| **Web** | https://claude.ai/artifact/UbkBdjJpYHuCi2tVxGwD1u | Tarayıcının hafızası (kitaplar); kelime defteri claude.ai hesabında |
+| **Web** | claude.ai'de özel bir sayfa (bağlantısı depoda tutulmuyor; Claude'un yayımladığı sayfalar listesinde "Ayraç") | Tarayıcının hafızası (kitaplar); kelime defteri claude.ai hesabında |
 
 Sürüm geçmişi: [CHANGELOG.md](CHANGELOG.md). Şu anki sürüm: [desktop/VERSION](desktop/VERSION).
 
